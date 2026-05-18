@@ -1,0 +1,1053 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gra: zrównoważone cięcie wierzchołkowe</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #162033;
+      --muted: #687386;
+      --line: #d8deea;
+      --accent: #2f6fed;
+      --good: #108a46;
+      --warn: #b25600;
+      --bad: #b42318;
+      --shadow: 0 14px 36px rgba(20, 30, 50, 0.10);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #edf3ff 0, #f7f8fb 34rem);
+      color: var(--ink);
+    }
+
+    header {
+      padding: 26px 28px 10px;
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.7rem, 3vw, 2.5rem);
+      letter-spacing: -0.04em;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      max-width: 980px;
+      line-height: 1.5;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 350px;
+      gap: 18px;
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 18px 28px 32px;
+    }
+
+    .board, .side-card {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(216, 222, 234, 0.9);
+      box-shadow: var(--shadow);
+      border-radius: 24px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid #c9d2e3;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+      border-radius: 12px;
+      padding: 10px 13px;
+      cursor: pointer;
+      transition: transform 0.08s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover { border-color: var(--accent); }
+    button:active { transform: translateY(1px); }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 30px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      white-space: nowrap;
+    }
+
+    .pill strong { color: var(--ink); }
+
+    .svg-wrap { padding: 10px; }
+
+    svg {
+      width: 100%;
+      min-height: 620px;
+      display: block;
+      border-radius: 18px;
+      background:
+        linear-gradient(rgba(22, 32, 51, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(22, 32, 51, 0.045) 1px, transparent 1px),
+        #fbfcff;
+      background-size: 28px 28px;
+      touch-action: manipulation;
+    }
+
+    .edge {
+      stroke: #8fa1bf;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      opacity: 0.72;
+    }
+
+    .edge.removed {
+      stroke: #cad1de;
+      stroke-dasharray: 5 7;
+      opacity: 0.22;
+    }
+
+    .node { cursor: pointer; }
+
+    .node circle.main {
+      stroke: #fff;
+      stroke-width: 3.2;
+      filter: drop-shadow(0 5px 9px rgba(15, 23, 42, 0.22));
+    }
+
+    .node text {
+      pointer-events: none;
+      fill: #fff;
+      font-weight: 900;
+      font-size: 13px;
+      text-anchor: middle;
+      dominant-baseline: central;
+      paint-order: stroke;
+      stroke: rgba(0, 0, 0, 0.22);
+      stroke-width: 2px;
+      stroke-linejoin: round;
+    }
+
+    .node.removed circle.main {
+      fill: #e2e7f0 !important;
+      stroke: #aab4c4;
+      filter: none;
+      opacity: 0.65;
+    }
+
+    .node.removed text {
+      fill: #556070;
+      stroke: rgba(255, 255, 255, 0.9);
+    }
+
+    .node:hover circle.main { stroke: #111827; }
+    .optimal-ring { fill: none; stroke: #111827; stroke-width: 3.2; stroke-dasharray: 5 4; }
+    .hint-line { stroke: #b42318; stroke-width: 3.5; stroke-linecap: round; }
+
+    .side-card {
+      padding: 18px;
+      align-self: start;
+      position: sticky;
+      top: 14px;
+    }
+
+    .side-card h2 {
+      margin: 0 0 12px;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .message {
+      padding: 14px;
+      border-radius: 16px;
+      background: #f2f6ff;
+      border: 1px solid #dbe6ff;
+      line-height: 1.45;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+
+    .message.good { background: #eaf8f0; border-color: #bfe8d0; color: var(--good); }
+    .message.warn { background: #fff5e8; border-color: #ffd9a8; color: var(--warn); }
+    .message.bad { background: #fff0ee; border-color: #ffd0cb; color: var(--bad); }
+
+    dl {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px 14px;
+      margin: 0 0 16px;
+      padding: 0;
+    }
+
+    dt { color: var(--muted); }
+    dd { margin: 0; font-weight: 900; }
+
+    .rules {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.96rem;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+
+    .rules p { margin: 0 0 10px; }
+    code { background: #edf1f7; padding: 1px 5px; border-radius: 6px; }
+
+    .small-note {
+      font-size: 0.86rem;
+      color: var(--muted);
+      line-height: 1.45;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+      .side-card { position: static; }
+      svg { min-height: 520px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Zrównoważone rozcięcie przyciętej składowej</h1>
+    <p class="lead">
+      Gra losuje graf dwumianowy <strong>G(50, p)</strong> z oczekiwanym średnim stopniem <strong>3</strong>, czyli
+      <code>p = 3 / 49</code>. Następnie zostawia największą składową spójności i iteracyjnie usuwa z niej wierzchołki
+      stopnia 1. Nowy cel: usuń jak najmniej wierzchołków tak, aby każda powstała składowa miała rozmiar co najmniej
+      <strong>1/3 liczby wierzchołków początkowej planszy</strong>.
+    </p>
+  </header>
+
+  <main>
+    <section class="board" aria-label="Plansza gry">
+      <div class="toolbar">
+        <div class="buttons">
+          <button id="newGraph" class="primary" type="button">Nowy graf</button>
+          <button id="reset" type="button">Resetuj ruchy</button>
+          <button id="undo" type="button">Cofnij</button>
+          <button id="reveal" type="button">Pokaż przykładowe optimum</button>
+        </div>
+        <div class="status-line" aria-live="polite">
+          <span class="pill">Usunięte: <strong id="removedCount">0</strong></span>
+          <span class="pill">Minimum: <strong id="minimumCut">?</strong></span>
+          <span class="pill">Próg składowej: <strong id="targetSize">?</strong></span>
+          <span class="pill">Składowe po ruchach: <strong id="componentCount">1</strong></span>
+        </div>
+      </div>
+      <div class="svg-wrap">
+        <svg id="graph" viewBox="0 0 900 620" role="img" aria-label="Przycięta największa składowa spójności grafu losowego">
+          <g id="edgeLayer"></g>
+          <g id="nodeLayer"></g>
+        </svg>
+      </div>
+    </section>
+
+    <aside class="side-card">
+      <h2>Stan gry</h2>
+      <div id="message" class="message">Kliknij wierzchołek, aby go usunąć.</div>
+      <dl>
+        <dt>Wierzchołki w największej składowej</dt><dd id="lccSize">-</dd>
+        <dt>Liście usunięte przed grą</dt><dd id="prunedLeaves">-</dd>
+        <dt>Wierzchołki w grze</dt><dd id="componentSize">-</dd>
+        <dt>Wymagany rozmiar składowej</dt><dd id="targetSizeSide">-</dd>
+        <dt>Krawędzie w grze</dt><dd id="componentEdges">-</dd>
+        <dt>Śr. stopień pełnego G(50,p)</dt><dd id="fullAvg">-</dd>
+        <dt>Śr. stopień grafu w grze</dt><dd id="componentAvg">-</dd>
+        <dt>Odrzucone losowania</dt><dd id="attempts">-</dd>
+      </dl>
+      <div class="rules">
+        <p><strong>Cel:</strong> po usunięciu wierzchołków graf ma się rozpaść na składowe, z których każda ma rozmiar co najmniej <code>ceil(n/3)</code>, gdzie <code>n</code> to liczba wierzchołków widocznych na początku gry.</p>
+        <p>Kliknięcie aktywnego wierzchołka usuwa go. Kliknięcie usuniętego wierzchołka przywraca go, dzięki czemu możesz eksperymentować.</p>
+        <p>Przycisk optimum pokazuje jeden minimalny zbiór wierzchołków, który spełnia nowy, zrównoważony cel dla tej konkretnej planszy.</p>
+      </div>
+      <p class="small-note">
+        Dla płynnego działania w przeglądarce gra odrzuca losowania, w których po przycięciu zostaje zbyt mały graf, graf bez takiego zrównoważonego cięcia albo graf większy niż lokalny limit dokładnego solvera.
+      </p>
+    </aside>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const N = 50;
+      const EXPECTED_AVG_DEGREE = 3;
+      const P = EXPECTED_AVG_DEGREE / (N - 1);
+      const W = 900;
+      const H = 620;
+      const MAX_ATTEMPTS = 5000;
+      const MAX_EXACT_BALANCED_VERTICES = 30;
+      const EXACT_SEARCH_TIME_BUDGET_MS = 2400;
+      const palette = ['#2f6fed', '#d64550', '#108a46', '#8f49de', '#b25600', '#008c95', '#c22575', '#52677a'];
+
+      const edgeLayer = document.getElementById('edgeLayer');
+      const nodeLayer = document.getElementById('nodeLayer');
+      const messageEl = document.getElementById('message');
+      const removedCountEl = document.getElementById('removedCount');
+      const minimumCutEl = document.getElementById('minimumCut');
+      const targetSizeEl = document.getElementById('targetSize');
+      const componentCountEl = document.getElementById('componentCount');
+      const lccSizeEl = document.getElementById('lccSize');
+      const prunedLeavesEl = document.getElementById('prunedLeaves');
+      const componentSizeEl = document.getElementById('componentSize');
+      const targetSizeSideEl = document.getElementById('targetSizeSide');
+      const componentEdgesEl = document.getElementById('componentEdges');
+      const fullAvgEl = document.getElementById('fullAvg');
+      const componentAvgEl = document.getElementById('componentAvg');
+      const attemptsEl = document.getElementById('attempts');
+      const newGraphBtn = document.getElementById('newGraph');
+      const resetBtn = document.getElementById('reset');
+      const undoBtn = document.getElementById('undo');
+      const revealBtn = document.getElementById('reveal');
+
+      let state = null;
+
+      function generateBinomialEdges(n, p) {
+        const edges = [];
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            if (Math.random() < p) edges.push([i, j]);
+          }
+        }
+        return edges;
+      }
+
+      function buildAdj(n, edges) {
+        const adj = Array.from({ length: n }, () => []);
+        for (const [u, v] of edges) {
+          adj[u].push(v);
+          adj[v].push(u);
+        }
+        return adj;
+      }
+
+      function largestConnectedComponent(n, edges) {
+        const adj = buildAdj(n, edges);
+        const seen = Array(n).fill(false);
+        let best = [];
+        for (let start = 0; start < n; start++) {
+          if (seen[start]) continue;
+          const comp = [];
+          const stack = [start];
+          seen[start] = true;
+          while (stack.length) {
+            const v = stack.pop();
+            comp.push(v);
+            for (const to of adj[v]) {
+              if (!seen[to]) {
+                seen[to] = true;
+                stack.push(to);
+              }
+            }
+          }
+          if (comp.length > best.length) best = comp;
+        }
+        best.sort((a, b) => a - b);
+        return best;
+      }
+
+      function inducedGraph(vertices, fullEdges) {
+        const index = new Map(vertices.map((v, i) => [v, i]));
+        const edges = [];
+        for (const [u, v] of fullEdges) {
+          if (index.has(u) && index.has(v)) edges.push([index.get(u), index.get(v)]);
+        }
+        return {
+          n: vertices.length,
+          vertices,
+          edges,
+          adj: buildAdj(vertices.length, edges)
+        };
+      }
+
+      function removeDegreeOneVertices(graph) {
+        const alive = Array(graph.n).fill(true);
+        let removedLeaves = 0;
+
+        while (true) {
+          const degree = Array(graph.n).fill(0);
+          for (const [u, v] of graph.edges) {
+            if (alive[u] && alive[v]) {
+              degree[u]++;
+              degree[v]++;
+            }
+          }
+
+          const leaves = [];
+          for (let v = 0; v < graph.n; v++) {
+            if (alive[v] && degree[v] === 1) leaves.push(v);
+          }
+          if (leaves.length === 0) break;
+
+          for (const v of leaves) alive[v] = false;
+          removedLeaves += leaves.length;
+        }
+
+        const kept = [];
+        const oldToNew = new Map();
+        for (let v = 0; v < graph.n; v++) {
+          if (alive[v]) {
+            oldToNew.set(v, kept.length);
+            kept.push(graph.vertices[v]);
+          }
+        }
+
+        const edges = [];
+        for (const [u, v] of graph.edges) {
+          if (alive[u] && alive[v]) edges.push([oldToNew.get(u), oldToNew.get(v)]);
+        }
+
+        return {
+          n: kept.length,
+          vertices: kept,
+          edges,
+          adj: buildAdj(kept.length, edges),
+          removedLeaves
+        };
+      }
+
+      function isConnected(graph) {
+        if (graph.n === 0) return false;
+        const seen = Array(graph.n).fill(false);
+        const stack = [0];
+        seen[0] = true;
+        while (stack.length) {
+          const v = stack.pop();
+          for (const to of graph.adj[v]) {
+            if (!seen[to]) {
+              seen[to] = true;
+              stack.push(to);
+            }
+          }
+        }
+        return seen.every(Boolean);
+      }
+
+      function popcount(mask) {
+        let x = mask >>> 0;
+        let count = 0;
+        while (x) {
+          x &= x - 1;
+          count++;
+        }
+        return count;
+      }
+
+      function bitIndex(bit) {
+        return 31 - Math.clz32(bit >>> 0);
+      }
+
+      function maskToArray(mask, n) {
+        const out = [];
+        let x = mask >>> 0;
+        while (x) {
+          const bit = x & -x;
+          out.push(bitIndex(bit));
+          x -= bit;
+        }
+        return out.filter(v => v < n);
+      }
+
+      function buildAdjMasks(graph) {
+        const masks = Array(graph.n).fill(0);
+        for (const [u, v] of graph.edges) {
+          masks[u] |= (1 << v);
+          masks[v] |= (1 << u);
+        }
+        return masks;
+      }
+
+      function largestComponentInMask(activeMask, adjMasks) {
+        let remaining = activeMask >>> 0;
+        let bestMask = 0;
+        let bestSize = 0;
+        while (remaining) {
+          const startBit = remaining & -remaining;
+          let queue = startBit;
+          let comp = 0;
+          while (queue) {
+            const bit = queue & -queue;
+            queue -= bit;
+            if (comp & bit) continue;
+            comp |= bit;
+            const v = bitIndex(bit);
+            queue |= adjMasks[v] & activeMask & (activeMask ^ comp);
+          }
+          remaining &= activeMask ^ comp;
+          const size = popcount(comp);
+          if (size > bestSize) {
+            bestSize = size;
+            bestMask = comp;
+          }
+        }
+        return { mask: bestMask, size: bestSize };
+      }
+
+      function candidateFromSide(sideA, boundary, n, fullMask, adjMasks, minComponentSize) {
+        const aSize = popcount(sideA);
+        if (aSize < minComponentSize) return null;
+        const outside = fullMask ^ (sideA | boundary);
+        const bestOutside = largestComponentInMask(outside, adjMasks);
+        if (bestOutside.size < minComponentSize) return null;
+        const k = n - aSize - bestOutside.size;
+        if (k <= 0) return null;
+        return { k, sideA, sideB: bestOutside.mask };
+      }
+
+      function greedyBalancedUpperBound(n, adjMasks, fullMask, minComponentSize) {
+        let best = null;
+        const maxSide = Math.floor(n / 2);
+        for (let root = 0; root < n; root++) {
+          const lowerMask = root === 0 ? 0 : (1 << root) - 1;
+          let sideA = 1 << root;
+          let guard = 0;
+          while (popcount(sideA) <= maxSide && guard++ < n) {
+            let boundary = 0;
+            let tmp = sideA;
+            while (tmp) {
+              const bit = tmp & -tmp;
+              tmp -= bit;
+              boundary |= adjMasks[bitIndex(bit)];
+            }
+            boundary &= fullMask ^ sideA;
+
+            const candidate = candidateFromSide(sideA, boundary, n, fullMask, adjMasks, minComponentSize);
+            if (candidate && (!best || candidate.k < best.k)) best = candidate;
+
+            let choices = boundary & (fullMask ^ lowerMask);
+            if (!choices) break;
+
+            let bestBit = choices & -choices;
+            let bestScore = Infinity;
+            let scan = choices;
+            while (scan) {
+              const bit = scan & -scan;
+              scan -= bit;
+              const v = bitIndex(bit);
+              const newSide = sideA | bit;
+              const newBoundary = (boundary | adjMasks[v]) & (fullMask ^ newSide);
+              const score = popcount(newBoundary);
+              if (score < bestScore) {
+                bestScore = score;
+                bestBit = bit;
+              }
+            }
+            sideA |= bestBit;
+          }
+        }
+        return best;
+      }
+
+      function chooseBranchBit(candidates, sideA, boundary, forbidden, lowerMask, fullMask, adjMasks) {
+        let bestBit = candidates & -candidates;
+        let bestScore = Infinity;
+        let scan = candidates;
+        while (scan) {
+          const bit = scan & -scan;
+          scan -= bit;
+          const v = bitIndex(bit);
+          const newSide = sideA | bit;
+          const newBoundary = (boundary | adjMasks[v]) & (fullMask ^ newSide);
+          const forced = popcount(newBoundary & (forbidden | lowerMask));
+          const score = forced * 100 + popcount(newBoundary);
+          if (score < bestScore) {
+            bestScore = score;
+            bestBit = bit;
+          }
+        }
+        return bestBit;
+      }
+
+      function minimumBalancedCut(graph) {
+        const n = graph.n;
+        const minComponentSize = Math.ceil(n / 3);
+        const maxRemovable = n - 2 * minComponentSize;
+        const base = {
+          k: Infinity,
+          separator: [],
+          sideA: [],
+          sideB: [],
+          minComponentSize,
+          calls: 0,
+          reason: 'none'
+        };
+
+        if (n < 6 || maxRemovable < 1) return { ...base, reason: 'too_small' };
+        if (n > MAX_EXACT_BALANCED_VERTICES) return { ...base, reason: 'too_large' };
+        if (!isConnected(graph)) return { ...base, reason: 'not_connected' };
+
+        const adjMasks = buildAdjMasks(graph);
+        const fullMask = (1 << n) - 1;
+        const maxSide = Math.floor(n / 2);
+        const startedAt = Date.now();
+        let calls = 0;
+
+        let best = greedyBalancedUpperBound(n, adjMasks, fullMask, minComponentSize);
+        let bestK = best ? best.k : maxRemovable + 1;
+        let bestA = best ? best.sideA : 0;
+        let bestB = best ? best.sideB : 0;
+
+        function consider(candidate) {
+          if (candidate && candidate.k < bestK) {
+            bestK = candidate.k;
+            bestA = candidate.sideA;
+            bestB = candidate.sideB;
+          }
+        }
+
+        function search(root, sideA, boundary, forbidden) {
+          calls++;
+          if (calls % 100000 === 0 && Date.now() - startedAt > EXACT_SEARCH_TIME_BUDGET_MS) {
+            throw new Error('balanced-search-timeout');
+          }
+
+          const lowerMask = root === 0 ? 0 : (1 << root) - 1;
+          const forcedBoundary = boundary & (forbidden | lowerMask);
+          if (popcount(forcedBoundary) >= bestK) return;
+
+          const sideSize = popcount(sideA);
+          if (sideSize >= minComponentSize) {
+            consider(candidateFromSide(sideA, boundary, n, fullMask, adjMasks, minComponentSize));
+            if (bestK === 1) return;
+          }
+          if (sideSize >= maxSide) return;
+
+          const allowed = fullMask ^ (forbidden | lowerMask);
+          const candidates = boundary & allowed;
+          if (!candidates) return;
+
+          const bit = chooseBranchBit(candidates, sideA, boundary, forbidden, lowerMask, fullMask, adjMasks);
+          const v = bitIndex(bit);
+          const newSide = sideA | bit;
+          const newBoundary = (boundary | adjMasks[v]) & (fullMask ^ newSide);
+
+          search(root, newSide, newBoundary, forbidden);
+          search(root, sideA, boundary, forbidden | bit);
+        }
+
+        try {
+          for (let root = 0; root < n; root++) {
+            const sideA = 1 << root;
+            const boundary = adjMasks[root] & (fullMask ^ sideA);
+            search(root, sideA, boundary, 0);
+            if (bestK === 1) break;
+          }
+        } catch (err) {
+          return { ...base, reason: 'timeout', calls };
+        }
+
+        if (bestK <= maxRemovable) {
+          const separatorMask = fullMask ^ (bestA | bestB);
+          return {
+            k: bestK,
+            separator: maskToArray(separatorMask, n),
+            sideA: maskToArray(bestA, n),
+            sideB: maskToArray(bestB, n),
+            minComponentSize,
+            calls,
+            reason: 'ok'
+          };
+        }
+        return { ...base, reason: 'none', calls };
+      }
+
+      function activeComponents(graph, removed) {
+        const seen = Array(graph.n).fill(false);
+        const comps = [];
+        for (let start = 0; start < graph.n; start++) {
+          if (removed.has(start) || seen[start]) continue;
+          const comp = [];
+          const stack = [start];
+          seen[start] = true;
+          while (stack.length) {
+            const v = stack.pop();
+            comp.push(v);
+            for (const to of graph.adj[v]) {
+              if (!removed.has(to) && !seen[to]) {
+                seen[to] = true;
+                stack.push(to);
+              }
+            }
+          }
+          comps.push(comp);
+        }
+        return comps;
+      }
+
+      function layoutGraph(graph) {
+        const n = graph.n;
+        const positions = [];
+        const cx = W / 2;
+        const cy = H / 2;
+        const initialRadius = Math.min(W, H) * 0.31;
+
+        for (let i = 0; i < n; i++) {
+          const angle = (2 * Math.PI * i) / Math.max(1, n) + (Math.random() - 0.5) * 0.35;
+          const jitter = 0.78 + Math.random() * 0.34;
+          positions.push({
+            x: cx + Math.cos(angle) * initialRadius * jitter,
+            y: cy + Math.sin(angle) * initialRadius * jitter
+          });
+        }
+
+        const ideal = n <= 8 ? 125 : n <= 18 ? 95 : 75;
+        const iterations = 620;
+        for (let iter = 0; iter < iterations; iter++) {
+          const disp = Array.from({ length: n }, () => ({ x: 0, y: 0 }));
+
+          for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+              let dx = positions[i].x - positions[j].x;
+              let dy = positions[i].y - positions[j].y;
+              let distSq = dx * dx + dy * dy;
+              if (distSq < 4) {
+                dx = Math.random() - 0.5;
+                dy = Math.random() - 0.5;
+                distSq = dx * dx + dy * dy + 4;
+              }
+              const dist = Math.sqrt(distSq);
+              const force = 5200 / distSq;
+              const fx = (dx / dist) * force;
+              const fy = (dy / dist) * force;
+              disp[i].x += fx;
+              disp[i].y += fy;
+              disp[j].x -= fx;
+              disp[j].y -= fy;
+            }
+          }
+
+          for (const [u, v] of graph.edges) {
+            const dx = positions[u].x - positions[v].x;
+            const dy = positions[u].y - positions[v].y;
+            const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+            const force = (dist - ideal) * 0.018;
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            disp[u].x -= fx;
+            disp[u].y -= fy;
+            disp[v].x += fx;
+            disp[v].y += fy;
+          }
+
+          for (let i = 0; i < n; i++) {
+            disp[i].x += (cx - positions[i].x) * 0.006;
+            disp[i].y += (cy - positions[i].y) * 0.006;
+            const temp = 5.5 * (1 - iter / iterations) + 0.15;
+            positions[i].x += Math.max(-temp, Math.min(temp, disp[i].x));
+            positions[i].y += Math.max(-temp, Math.min(temp, disp[i].y));
+          }
+        }
+
+        if (!positions.length) return positions;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const p of positions) {
+          minX = Math.min(minX, p.x);
+          minY = Math.min(minY, p.y);
+          maxX = Math.max(maxX, p.x);
+          maxY = Math.max(maxY, p.y);
+        }
+        const margin = 56;
+        const spanX = Math.max(1, maxX - minX);
+        const spanY = Math.max(1, maxY - minY);
+        const scale = Math.min((W - 2 * margin) / spanX, (H - 2 * margin) / spanY, 1.65);
+        const usedW = spanX * scale;
+        const usedH = spanY * scale;
+        const offsetX = (W - usedW) / 2;
+        const offsetY = (H - usedH) / 2;
+        for (const p of positions) {
+          p.x = offsetX + (p.x - minX) * scale;
+          p.y = offsetY + (p.y - minY) * scale;
+        }
+        return positions;
+      }
+
+      function formatNumber(x, digits = 2) {
+        return Number.isFinite(x) ? x.toFixed(digits).replace('.', ',') : '-';
+      }
+
+      function graphStats(fullEdges, graph, attempts, lccSize, prunedLeaves, cut) {
+        lccSizeEl.textContent = String(lccSize);
+        prunedLeavesEl.textContent = String(prunedLeaves);
+        componentSizeEl.textContent = String(graph.n);
+        targetSizeSideEl.textContent = String(cut.minComponentSize || Math.ceil(graph.n / 3));
+        componentEdgesEl.textContent = String(graph.edges.length);
+        fullAvgEl.textContent = formatNumber((2 * fullEdges.length) / N);
+        componentAvgEl.textContent = formatNumber(graph.n ? (2 * graph.edges.length) / graph.n : 0);
+        attemptsEl.textContent = String(Math.max(0, attempts - 1));
+      }
+
+      function createPlayableInstance() {
+        let fallback = null;
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          const fullEdges = generateBinomialEdges(N, P);
+          const lccVertices = largestConnectedComponent(N, fullEdges);
+          const lccGraph = inducedGraph(lccVertices, fullEdges);
+          const graph = removeDegreeOneVertices(lccGraph);
+          const cut = minimumBalancedCut(graph);
+          const instance = {
+            fullEdges,
+            graph,
+            cut,
+            attempt,
+            lccSize: lccGraph.n,
+            prunedLeaves: graph.removedLeaves
+          };
+          fallback = instance;
+          if (graph.n >= 6 && graph.n <= MAX_EXACT_BALANCED_VERTICES && Number.isFinite(cut.k) && cut.k > 0) return instance;
+        }
+        return fallback;
+      }
+
+      function newGame() {
+        const instance = createPlayableInstance();
+        state = {
+          fullEdges: instance.fullEdges,
+          graph: instance.graph,
+          cut: instance.cut,
+          positions: layoutGraph(instance.graph),
+          removed: new Set(),
+          history: [],
+          reveal: false,
+          attempt: instance.attempt,
+          lccSize: instance.lccSize,
+          prunedLeaves: instance.prunedLeaves
+        };
+        revealBtn.textContent = 'Pokaż przykładowe optimum';
+        graphStats(state.fullEdges, state.graph, state.attempt, state.lccSize, state.prunedLeaves, state.cut);
+        render();
+      }
+
+      function setMessage(text, kind = '') {
+        messageEl.textContent = text;
+        messageEl.className = 'message' + (kind ? ' ' + kind : '');
+      }
+
+      function toggleVertex(v) {
+        const wasRemoved = state.removed.has(v);
+        state.history.push({ v, wasRemoved });
+        if (wasRemoved) state.removed.delete(v);
+        else state.removed.add(v);
+        render();
+      }
+
+      function undo() {
+        const action = state.history.pop();
+        if (!action) return;
+        if (action.wasRemoved) state.removed.add(action.v);
+        else state.removed.delete(action.v);
+        render();
+      }
+
+      function resetMoves() {
+        state.removed.clear();
+        state.history = [];
+        render();
+      }
+
+      function toggleReveal() {
+        state.reveal = !state.reveal;
+        revealBtn.textContent = state.reveal ? 'Ukryj przykładowe optimum' : 'Pokaż przykładowe optimum';
+        render();
+      }
+
+      function renderEdges(compIdByVertex, disconnected) {
+        edgeLayer.innerHTML = '';
+        const frag = document.createDocumentFragment();
+        for (const [u, v] of state.graph.edges) {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', state.positions[u].x);
+          line.setAttribute('y1', state.positions[u].y);
+          line.setAttribute('x2', state.positions[v].x);
+          line.setAttribute('y2', state.positions[v].y);
+          const edgeRemoved = state.removed.has(u) || state.removed.has(v);
+          line.setAttribute('class', edgeRemoved ? 'edge removed' : 'edge');
+          if (!edgeRemoved && disconnected) {
+            const color = palette[compIdByVertex[u] % palette.length];
+            line.setAttribute('stroke', color);
+            line.setAttribute('opacity', '0.86');
+          }
+          frag.appendChild(line);
+        }
+        edgeLayer.appendChild(frag);
+      }
+
+      function renderNodes(compIdByVertex, disconnected) {
+        nodeLayer.innerHTML = '';
+        const frag = document.createDocumentFragment();
+        const optimal = new Set(state.reveal ? state.cut.separator : []);
+
+        for (let i = 0; i < state.graph.n; i++) {
+          const pos = state.positions[i];
+          const removed = state.removed.has(i);
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', 'node' + (removed ? ' removed' : ''));
+          g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
+          g.setAttribute('tabindex', '0');
+          g.setAttribute('role', 'button');
+          g.setAttribute('aria-label', `${removed ? 'Przywróć' : 'Usuń'} wierzchołek ${state.graph.vertices[i] + 1}`);
+
+          const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+          title.textContent = `${removed ? 'Usunięty' : 'Aktywny'} wierzchołek ${state.graph.vertices[i] + 1}`;
+          g.appendChild(title);
+
+          if (optimal.has(i)) {
+            const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            ring.setAttribute('class', 'optimal-ring');
+            ring.setAttribute('r', '22');
+            g.appendChild(ring);
+          }
+
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('class', 'main');
+          circle.setAttribute('r', '16');
+          if (!removed) {
+            const colorIndex = disconnected ? (compIdByVertex[i] % palette.length) : 0;
+            circle.setAttribute('fill', palette[colorIndex]);
+          }
+          g.appendChild(circle);
+
+          if (removed) {
+            const a = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            a.setAttribute('class', 'hint-line');
+            a.setAttribute('x1', '-9');
+            a.setAttribute('y1', '-9');
+            a.setAttribute('x2', '9');
+            a.setAttribute('y2', '9');
+            const b = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            b.setAttribute('class', 'hint-line');
+            b.setAttribute('x1', '9');
+            b.setAttribute('y1', '-9');
+            b.setAttribute('x2', '-9');
+            b.setAttribute('y2', '9');
+            g.appendChild(a);
+            g.appendChild(b);
+          }
+
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.textContent = String(state.graph.vertices[i] + 1);
+          g.appendChild(text);
+
+          g.addEventListener('click', () => toggleVertex(i));
+          g.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              toggleVertex(i);
+            }
+          });
+          frag.appendChild(g);
+        }
+        nodeLayer.appendChild(frag);
+      }
+
+      function cutUnavailableMessage(reason) {
+        if (reason === 'too_large') {
+          return `Po przycięciu plansza ma ${state.graph.n} wierzchołków, a lokalny dokładny solver sprawdza do ${MAX_EXACT_BALANCED_VERTICES}. Wylosuj nowy graf.`;
+        }
+        if (reason === 'timeout') {
+          return 'Dokładny solver przerwał liczenie tej planszy, żeby nie zawiesić przeglądarki. Wylosuj nowy graf.';
+        }
+        if (reason === 'too_small') {
+          return 'Po przycięciu plansza jest za mała, aby utworzyć dwie składowe mające po co najmniej 1/3 początkowych wierzchołków.';
+        }
+        return 'Dla tej planszy nie znaleziono zrównoważonego cięcia spełniającego cel. Wylosuj nowy graf.';
+      }
+
+      function render() {
+        if (!state) return;
+        const comps = activeComponents(state.graph, state.removed);
+        const activeCount = state.graph.n - state.removed.size;
+        const target = state.cut.minComponentSize || Math.ceil(state.graph.n / 3);
+        const disconnected = comps.length >= 2;
+        const balanced = disconnected && comps.every(comp => comp.length >= target);
+        const compSizes = comps.map(comp => comp.length).sort((a, b) => b - a);
+        const compIdByVertex = Array(state.graph.n).fill(0);
+        comps.forEach((comp, idx) => comp.forEach(v => { compIdByVertex[v] = idx; }));
+
+        renderEdges(compIdByVertex, disconnected);
+        renderNodes(compIdByVertex, disconnected);
+
+        removedCountEl.textContent = String(state.removed.size);
+        minimumCutEl.textContent = Number.isFinite(state.cut.k) ? String(state.cut.k) : 'brak';
+        targetSizeEl.textContent = String(target);
+        componentCountEl.textContent = String(comps.length);
+        undoBtn.disabled = state.history.length === 0;
+
+        if (!Number.isFinite(state.cut.k)) {
+          setMessage(cutUnavailableMessage(state.cut.reason), 'warn');
+        } else if (balanced && state.removed.size === state.cut.k) {
+          setMessage(`Idealnie! Osiągasz zrównoważony podział za pomocą ${state.removed.size} wierzchołków, czyli minimalnie. Rozmiary składowych: ${compSizes.join(' i ')}.`, 'good');
+        } else if (balanced) {
+          setMessage(`Cel osiągnięty, ale użyto ${state.removed.size} wierzchołków. Minimum dla tej planszy to ${state.cut.k}. Rozmiary składowych: ${compSizes.join(' i ')}.`, 'warn');
+        } else if (disconnected) {
+          setMessage(`Graf jest rozspójniony, ale podział nie jest zrównoważony. Każda składowa musi mieć co najmniej ${target} wierzchołków. Aktualne rozmiary: ${compSizes.join(', ')}.`, 'bad');
+        } else if (activeCount < 2 * target) {
+          setMessage(`Usunięto zbyt wiele wierzchołków: zostało ${activeCount}, a potrzeba co najmniej ${2 * target} wierzchołków łącznie, żeby dwie składowe mogły spełnić próg ${target}.`, 'bad');
+        } else {
+          setMessage(`Graf nadal nie spełnia celu. Usuń wierzchołki tak, aby powstały składowe rozmiaru co najmniej ${target}. Minimum: ${state.cut.k}.`);
+        }
+
+        if (state.reveal && Number.isFinite(state.cut.k)) {
+          const labels = state.cut.separator.map(v => state.graph.vertices[v] + 1).join(', ');
+          const sideSizes = [state.cut.sideA.length, state.cut.sideB.length].sort((a, b) => b - a).join(' i ');
+          const suffix = labels ? ` Przykładowe optimum: usuń ${labels}; powstają składowe rozmiarów ${sideSizes}.` : '';
+          messageEl.textContent += suffix;
+        }
+      }
+
+      newGraphBtn.addEventListener('click', newGame);
+      resetBtn.addEventListener('click', resetMoves);
+      undoBtn.addEventListener('click', undo);
+      revealBtn.addEventListener('click', toggleReveal);
+
+      document.addEventListener('keydown', event => {
+        if (event.target && ['INPUT', 'TEXTAREA', 'BUTTON'].includes(event.target.tagName)) return;
+        if (event.key.toLowerCase() === 'n') newGame();
+        if (event.key.toLowerCase() === 'r') resetMoves();
+        if (event.key.toLowerCase() === 'z') undo();
+      });
+
+      newGame();
+    })();
+  </script>
+</body>
+</html>

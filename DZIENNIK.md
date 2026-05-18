@@ -11,3 +11,11 @@
 - Przygotowano lokalny commit `Initial GitHub Pages game` na gałęzi `main`.
 - Uruchomiono lokalny podgląd strony pod adresem `http://127.0.0.1:8000/`.
 - Utworzenie repozytorium GitHub i włączenie Pages czeka na autoryzację GitHub CLI.
+
+## 2026-05-19
+
+- Odświeżono autoryzację GitHub CLI dla konta `Dudek296`.
+- Utworzono publiczne repozytorium `https://github.com/Dudek296/gra`.
+- Wypchnięto gałąź `main` do GitHuba.
+- Włączono GitHub Pages z gałęzi `main` i katalogu `/`.
+- Potwierdzono dostępność strony pod adresem `https://Dudek296.github.io/gra/`.

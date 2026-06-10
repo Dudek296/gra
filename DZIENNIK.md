@@ -28,3 +28,5 @@
 - Wzmocniono wizualizację wierzchołków spoza największej składowej: są grupowane w swoje małe składowe i pokazują szare krawędzie między sobą.
 - Przesunięto wierzchołki spoza największej składowej do bocznych pasów planszy, aby nie nachodziły na główną składową.
 - Zmieniono etykiety wierzchołków głównej składowej na numerację lokalną od `1` do liczby widocznych wierzchołków tej składowej.
+- Zmieniono regułę przycinania liści: pełna największa składowa jest używana bez przycinania, a liście są przycinane tylko wtedy, gdy dokładny solver nie radzi sobie z rozmiarem lub przekracza limit czasu.
+- Przycięte awaryjnie liście pozostają widoczne jako małe, blade, nieinteraktywne wierzchołki z bladymi krawędziami.

@@ -176,6 +176,14 @@
       opacity: 0.46;
     }
 
+    .pruned-edge {
+      stroke: #c8ced8;
+      stroke-width: 1;
+      stroke-linecap: round;
+      stroke-dasharray: 3 5;
+      opacity: 0.3;
+    }
+
     .incidence {
       stroke: #d8a273;
       stroke-width: 1.5;
@@ -206,6 +214,19 @@
       stroke-width: 2;
       filter: none;
       opacity: 0.9;
+    }
+
+    .node.pruned {
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .node.pruned circle.main {
+      fill: #dce2eb;
+      stroke: #b6bfce;
+      stroke-width: 1.7;
+      filter: none;
+      opacity: 0.62;
     }
 
     .feature rect.main { rx: 7; }
@@ -371,7 +392,7 @@
         <dt>Cechy pełnego grafu</dt><dd id="fullM">-</dd>
         <dt>Wierzchołki w największej składowej</dt><dd id="lccSize">-</dd>
         <dt>Poza największą składową</dt><dd id="outsideLccSize">-</dd>
-        <dt>Liście usunięte przed grą</dt><dd id="prunedLeaves">-</dd>
+        <dt>Liście poza grą</dt><dd id="prunedLeaves">-</dd>
         <dt>Wierzchołki w grze</dt><dd id="componentSize">-</dd>
         <dt>Wymagany rozmiar składowej</dt><dd id="targetSizeSide">-</dd>
         <dt>Krawędzie w grze</dt><dd id="componentEdges">-</dd>
@@ -570,6 +591,41 @@
           if (index.has(u) && index.has(v)) edges.push([index.get(u), index.get(v)]);
         }
         return { n: vertices.length, vertices, edges, adj: buildAdj(vertices.length, edges) };
+      }
+
+      function emptyPrunedVisualization() {
+        return { vertices: [], edges: [] };
+      }
+
+      function prunedVisualization(sourceGraph, playableGraph) {
+        const activeIndex = new Map(playableGraph.vertices.map((v, i) => [v, i]));
+        const prunedVertices = sourceGraph.vertices.filter(v => !activeIndex.has(v));
+        const prunedIndex = new Map(prunedVertices.map((v, i) => [v, i]));
+        const edges = [];
+
+        for (const [u, v] of sourceGraph.edges) {
+          const uLabel = sourceGraph.vertices[u];
+          const vLabel = sourceGraph.vertices[v];
+          const uActive = activeIndex.get(uLabel);
+          const vActive = activeIndex.get(vLabel);
+          if (uActive !== undefined && vActive !== undefined) continue;
+          edges.push({
+            aType: uActive !== undefined ? 'active' : 'pruned',
+            a: uActive !== undefined ? uActive : prunedIndex.get(uLabel),
+            bType: vActive !== undefined ? 'active' : 'pruned',
+            b: vActive !== undefined ? vActive : prunedIndex.get(vLabel)
+          });
+        }
+
+        return { vertices: prunedVertices, edges };
+      }
+
+      function solverNeedsPrunedFallback(cut) {
+        return cut.reason === 'too_large' || cut.reason === 'timeout';
+      }
+
+      function isPlayableCut(graph, cut) {
+        return graph.n >= 6 && Number.isFinite(cut.k) && cut.k > 0;
       }
 
       function removeDegreeOneVertices(graph) {
@@ -892,22 +948,39 @@
           const lccVertices = largestConnectedComponent(config.n, fullEdges);
           const inactiveVertices = verticesOutside(config.n, lccVertices);
           const lccGraph = inducedGraph(lccVertices, fullEdges);
-          const graph = removeDegreeOneVertices(lccGraph);
-          const cut = minimumBalancedVertexCut(graph);
-          const instance = {
+          const fullCut = minimumBalancedVertexCut(lccGraph);
+          const fullInstance = {
             mode: 'binomial',
             config,
             fullEdges,
-            graph,
-            cut,
+            graph: lccGraph,
+            cut: fullCut,
             attempt,
             lccSize: lccGraph.n,
             inactiveVertices,
             inactiveGraph: inducedGraph(inactiveVertices, fullEdges),
-            prunedLeaves: graph.removedLeaves
+            pruned: emptyPrunedVisualization(),
+            prunedLeaves: 0,
+            usedPruningFallback: false
           };
-          fallback = instance;
-          if (graph.n >= 6 && Number.isFinite(cut.k) && cut.k > 0) return instance;
+          fallback = fullInstance;
+          if (isPlayableCut(lccGraph, fullCut)) return fullInstance;
+
+          if (solverNeedsPrunedFallback(fullCut)) {
+            const prunedGraph = removeDegreeOneVertices(lccGraph);
+            const prunedCut = minimumBalancedVertexCut(prunedGraph);
+            const pruned = prunedVisualization(lccGraph, prunedGraph);
+            const prunedInstance = {
+              ...fullInstance,
+              graph: prunedGraph,
+              cut: prunedCut,
+              pruned,
+              prunedLeaves: pruned.vertices.length,
+              usedPruningFallback: true
+            };
+            fallback = prunedInstance;
+            if (isPlayableCut(prunedGraph, prunedCut)) return prunedInstance;
+          }
         }
         return fallback;
       }
@@ -932,7 +1005,9 @@
             lccSize: graph.n,
             inactiveVertices,
             inactiveGraph: inducedGraph(inactiveVertices, fullEdges),
-            prunedLeaves: 0
+            pruned: emptyPrunedVisualization(),
+            prunedLeaves: 0,
+            usedPruningFallback: false
           };
           fallback = instance;
           if (graph.n >= 6 && features.length >= 2 && Number.isFinite(cut.k) && cut.k > 0) return instance;
@@ -940,7 +1015,7 @@
         return fallback;
       }
 
-      function layoutGraph(graph, mode, featureCount = 0, inactiveGraph = null) {
+      function layoutGraph(graph, mode, featureCount = 0, inactiveGraph = null, pruned = emptyPrunedVisualization()) {
         const n = graph.n;
         const positions = [];
         const cx = W / 2;
@@ -991,11 +1066,12 @@
           }
         }
         const hasInactiveVertices = Boolean(inactiveGraph && inactiveGraph.n);
+        const hasPeripheralVertices = hasInactiveVertices || Boolean(pruned && pruned.vertices.length);
         normalizePositions(
           positions,
           mode === 'intersection' ? 58 : 56,
           mode === 'intersection' ? 110 : 56,
-          hasInactiveVertices ? { minX: 150, maxX: W - 150 } : null
+          hasPeripheralVertices ? { minX: 150, maxX: W - 150 } : null
         );
         const featurePositions = [];
         if (mode === 'intersection') {
@@ -1011,7 +1087,87 @@
             featurePositions.push({ x, y: startY + row * 42 });
           }
         }
-        return { vertices: positions, features: featurePositions, inactive: layoutInactiveGraph(inactiveGraph, mode) };
+        return {
+          vertices: positions,
+          features: featurePositions,
+          inactive: layoutInactiveGraph(inactiveGraph, mode),
+          pruned: layoutPrunedVertices(pruned, positions, mode, hasInactiveVertices)
+        };
+      }
+
+      function layoutPrunedVertices(pruned, activePositions, mode, hasInactiveVertices) {
+        const positions = [];
+        if (!pruned || !pruned.vertices.length || !activePositions.length) return positions;
+
+        const adj = Array.from({ length: pruned.vertices.length }, () => []);
+        const placement = Array.from({ length: pruned.vertices.length }, () => ({ anchor: null, depth: Infinity }));
+        const queue = [];
+
+        for (const edge of pruned.edges) {
+          if (edge.aType === 'pruned' && edge.bType === 'pruned') {
+            adj[edge.a].push(edge.b);
+            adj[edge.b].push(edge.a);
+          } else {
+            const prunedIndex = edge.aType === 'pruned' ? edge.a : edge.b;
+            const activeIndex = edge.aType === 'active' ? edge.a : edge.b;
+            if (placement[prunedIndex].depth > 1) {
+              placement[prunedIndex] = { anchor: activeIndex, depth: 1 };
+              queue.push(prunedIndex);
+            }
+          }
+        }
+
+        for (let head = 0; head < queue.length; head++) {
+          const v = queue[head];
+          for (const to of adj[v]) {
+            if (placement[to].depth > placement[v].depth + 1) {
+              placement[to] = { anchor: placement[v].anchor, depth: placement[v].depth + 1 };
+              queue.push(to);
+            }
+          }
+        }
+
+        const byAnchor = new Map();
+        for (let i = 0; i < placement.length; i++) {
+          if (placement[i].anchor === null) {
+            placement[i] = { anchor: i % activePositions.length, depth: 2 };
+          }
+          const list = byAnchor.get(placement[i].anchor) || [];
+          list.push(i);
+          byAnchor.set(placement[i].anchor, list);
+        }
+
+        const center = { x: W / 2, y: mode === 'intersection' ? H * 0.39 : H / 2 };
+        const minX = hasInactiveVertices ? 116 : 24;
+        const maxX = hasInactiveVertices ? W - 116 : W - 24;
+        const maxY = mode === 'intersection' ? H - 142 : H - 24;
+
+        for (const [anchor, vertices] of byAnchor) {
+          const base = activePositions[anchor];
+          let dx = base.x - center.x;
+          let dy = base.y - center.y;
+          let len = Math.sqrt(dx * dx + dy * dy);
+          if (len < 1) {
+            const angle = (2 * Math.PI * anchor) / activePositions.length;
+            dx = Math.cos(angle);
+            dy = Math.sin(angle);
+            len = 1;
+          }
+          const dir = { x: dx / len, y: dy / len };
+          const tangent = { x: -dir.y, y: dir.x };
+          vertices.sort((a, b) => placement[a].depth - placement[b].depth || a - b);
+          for (let i = 0; i < vertices.length; i++) {
+            const v = vertices[i];
+            const spread = (i - (vertices.length - 1) / 2) * 15;
+            const radius = 29 + Math.min(placement[v].depth, 5) * 17;
+            positions[v] = {
+              x: clamp(base.x + dir.x * radius + tangent.x * spread, minX, maxX),
+              y: clamp(base.y + dir.y * radius + tangent.y * spread, 24, maxY)
+            };
+          }
+        }
+
+        return positions;
       }
 
       function layoutInactiveGraph(graph, mode) {
@@ -1077,7 +1233,7 @@
         const instance = config.mode === 'binomial' ? createBinomialInstance(config) : createIntersectionInstance(config);
         state = {
           ...instance,
-          positions: layoutGraph(instance.graph, config.mode, instance.features ? instance.features.length : 0, instance.inactiveGraph),
+          positions: layoutGraph(instance.graph, config.mode, instance.features ? instance.features.length : 0, instance.inactiveGraph, instance.pruned),
           removed: new Set(),
           history: [],
           reveal: false
@@ -1148,6 +1304,7 @@
         edgeLayer.innerHTML = '';
         const frag = document.createDocumentFragment();
         renderInactiveEdges(frag);
+        renderPrunedEdges(frag);
         if (state.mode === 'intersection') {
           for (let f = 0; f < state.features.length; f++) {
             for (const v of state.features[f]) {
@@ -1192,11 +1349,28 @@
         }
       }
 
+      function renderPrunedEdges(frag) {
+        if (!state.pruned || !state.pruned.edges.length) return;
+        for (const edge of state.pruned.edges) {
+          const a = edge.aType === 'active' ? state.positions.vertices[edge.a] : state.positions.pruned[edge.a];
+          const b = edge.bType === 'active' ? state.positions.vertices[edge.b] : state.positions.pruned[edge.b];
+          if (!a || !b) continue;
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', a.x);
+          line.setAttribute('y1', a.y);
+          line.setAttribute('x2', b.x);
+          line.setAttribute('y2', b.y);
+          line.setAttribute('class', 'pruned-edge');
+          frag.appendChild(line);
+        }
+      }
+
       function renderNodes(compIdByVertex, disconnected) {
         nodeLayer.innerHTML = '';
         const frag = document.createDocumentFragment();
         const optimal = new Set(state.reveal ? state.cut.separator : []);
         renderInactiveVertices(frag);
+        renderPrunedVertices(frag);
         for (let i = 0; i < state.graph.n; i++) {
           const pos = state.positions.vertices[i];
           const removed = state.mode === 'binomial' && state.removed.has(i);
@@ -1245,6 +1419,30 @@
           const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
           circle.setAttribute('class', 'main');
           circle.setAttribute('r', '8');
+          g.appendChild(circle);
+          frag.appendChild(g);
+        }
+      }
+
+      function renderPrunedVertices(frag) {
+        if (!state.pruned || !state.pruned.vertices.length) return;
+        for (let i = 0; i < state.pruned.vertices.length; i++) {
+          const pos = state.positions.pruned[i];
+          if (!pos) continue;
+          const label = state.pruned.vertices[i] + 1;
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', 'node pruned');
+          g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
+          g.setAttribute('role', 'img');
+          g.setAttribute('aria-label', `Przycięty liść ${label} poza grą`);
+
+          const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+          title.textContent = `Przycięty liść ${label} poza grą`;
+          g.appendChild(title);
+
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('class', 'main');
+          circle.setAttribute('r', '6');
           g.appendChild(circle);
           frag.appendChild(g);
         }

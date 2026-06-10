@@ -32,3 +32,5 @@
 - Przycięte awaryjnie liście pozostają widoczne jako małe, blade, nieinteraktywne wierzchołki z bladymi krawędziami.
 - Wzmocniono widoczność awaryjnie przyciętych liści oraz ich połączeń z główną składową.
 - Dodano w opisie trybu dwumianowego uzasadnienie, czemu liście mogą zostać wyłączone z ruchów.
+- Dodano ustawienie `Pokazuj stopnie`, które zamienia etykiety wierzchołków z numerów na aktualne stopnie.
+- Przy włączonym pokazywaniu stopni komunikat przykładowego optimum nie wypisuje indeksów usuwanych elementów.

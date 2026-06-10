@@ -189,6 +189,12 @@
       opacity: 0.18;
     }
 
+    .edge.beta-projection {
+      stroke: #7f8a9c;
+      stroke-width: 1;
+      opacity: 0.16;
+    }
+
     .inactive-edge {
       stroke: #b8c1d0;
       stroke-width: 1.25;
@@ -214,6 +220,12 @@
       stroke: #d8a273;
       stroke-width: 1.5;
       opacity: 0.42;
+    }
+
+    .incidence.beta {
+      stroke: #a65f2f;
+      stroke-width: 1.9;
+      opacity: 0.62;
     }
 
     .incidence.removed {
@@ -366,6 +378,7 @@
             <select id="modeSelect">
               <option value="binomial">Graf dwumianowy G(n,p)</option>
               <option value="intersection">Graf przecięć</option>
+              <option value="intersectionBeta">Graf przecięć - beta</option>
             </select>
           </label>
           <label>Poziom trudności
@@ -514,6 +527,14 @@
         return Number.isFinite(x) ? x.toFixed(digits).replace('.', ',') : '-';
       }
 
+      function isIntersectionMode(mode) {
+        return mode === 'intersection' || mode === 'intersectionBeta';
+      }
+
+      function isIntersectionBetaMode(mode) {
+        return mode === 'intersectionBeta';
+      }
+
       function currentConfig() {
         const mode = modeSelect.value;
         const difficulty = difficultySelect.value;
@@ -525,7 +546,7 @@
           mode,
           difficulty,
           n: readInt(nInput, 50, 8, 90),
-          m: mode === 'intersection' ? readInt(mInput, 20, 4, 32) : 0,
+          m: isIntersectionMode(mode) ? readInt(mInput, 20, 4, 32) : 0,
           p: readFloat(pInput, mode === 'binomial' ? 3 / 49 : Math.sqrt(3 / (50 * 20)), 0.001, 0.95)
         };
       }
@@ -533,7 +554,7 @@
       function syncControls() {
         const mode = modeSelect.value;
         const difficulty = difficultySelect.value;
-        mField.classList.toggle('hidden', mode !== 'intersection');
+        mField.classList.toggle('hidden', !isIntersectionMode(mode));
         if (difficulty !== 'custom') {
           const defaults = mode === 'binomial' ? binomialDifficulties[difficulty] : intersectionDifficulties[difficulty];
           nInput.value = defaults.n;
@@ -544,10 +565,10 @@
           pInput.disabled = true;
         } else {
           nInput.disabled = false;
-          mInput.disabled = mode !== 'intersection';
+          mInput.disabled = !isIntersectionMode(mode);
           pInput.disabled = false;
         }
-        removedLabelEl.textContent = mode === 'intersection' ? 'Usunięte cechy' : 'Usunięte';
+        removedLabelEl.textContent = isIntersectionMode(mode) ? 'Usunięte cechy' : 'Usunięte';
         updateStaticText();
       }
 
@@ -556,6 +577,9 @@
         if (mode === 'binomial') {
           leadText.innerHTML = 'Tryb dwumianowy losuje graf <strong>G(n,p)</strong> i pokazuje największą składową spójności jako główną planszę. Celem jest usunięcie jak najmniejszej liczby wierzchołków tak, aby powstały co najmniej dwie składowe, a każda miała rozmiar co najmniej <strong>1/3 początkowej planszy</strong>.';
           rulesText.innerHTML = '<p><strong>Cel:</strong> klikaj wierzchołki, aby usuwać je z planszy. Kliknięcie usuniętego wierzchołka przywraca go.</p><p>Poziom normalny odpowiada wersji startowej: <code>n=50</code> oraz średni stopień około <code>3</code>. Poziomy łatwy i trudny używają odpowiednio <code>n=30</code> i <code>n=70</code>.</p><p>Liście są uwzględniane w grze, o ile dokładny solver daje radę policzyć planszę. Gdy solver przekracza limit rozmiaru albo czasu, liście są wyłączane z ruchów, bo nie pomagają w zrównoważonym rozspójnieniu: odcięcie liścia tworzyłoby zbyt małą składową, a usuwanie go tylko zużywa ruch. Takie liście pozostają widoczne jako blade wierzchołki z bladymi połączeniami.</p>';
+        } else if (isIntersectionBetaMode(mode)) {
+          leadText.innerHTML = 'Tryb beta grafu przecięć używa tej samej mechaniki usuwania cech, ale układa cechy po bokach planszy i grupuje wierzchołki według pierwszej cechy, która je zawiera. Zwykłe krawędzie grafu przecięć są wyciszone, aby nie mieszały się z połączeniami cecha-wierzchołek.';
+          rulesText.innerHTML = '<p><strong>Cel:</strong> klikaj prostokątne cechy po bokach planszy. Usunięcie cechy kasuje wszystkie połączenia, które ona tworzy.</p><p>Tryb beta służy do porównania czytelności: wierzchołki są grupowane przy cechach, a krawędzie wynikowe między wierzchołkami pozostają tylko jako subtelne tło.</p>';
         } else {
           leadText.innerHTML = 'Tryb grafu przecięć losuje wierzchołki i osobne cechy. Wierzchołki są połączone, gdy mają wspólną aktywną cechę. Celem jest usunięcie jak najmniejszej liczby cech tak, aby graf wierzchołków rozpadł się na zrównoważone składowe.';
           rulesText.innerHTML = '<p><strong>Cel:</strong> klikaj prostokątne cechy w dolnym rzędzie. Usunięcie cechy kasuje wszystkie połączenia, które ona tworzy.</p><p>Poziom normalny używa <code>n=50</code>, <code>m=20</code> oraz <code>p</code> dobranego z równania <code>nmp^2=3</code>. Poziomy łatwy i trudny używają analogicznie mniejszych i większych plansz.</p>';
@@ -1027,7 +1051,7 @@
           const graph = activeIntersectionGraph(lccVertices.length, features, new Set(), lccVertices);
           const cut = minimumFeatureCut(graph.n, features);
           const instance = {
-            mode: 'intersection',
+            mode: config.mode,
             config,
             features,
             graph,
@@ -1046,12 +1070,22 @@
         return fallback;
       }
 
-      function layoutGraph(graph, mode, featureCount = 0, inactiveGraph = null, pruned = emptyPrunedVisualization()) {
+      function layoutGraph(graph, mode, featureCount = 0, inactiveGraph = null, pruned = emptyPrunedVisualization(), features = []) {
         const n = graph.n;
+        if (isIntersectionBetaMode(mode)) {
+          const betaLayout = layoutIntersectionBetaGraph(n, features, featureCount);
+          return {
+            vertices: betaLayout.vertices,
+            features: betaLayout.features,
+            inactive: layoutInactiveGraph(inactiveGraph, mode),
+            pruned: layoutPrunedVertices(pruned, betaLayout.vertices, mode, Boolean(inactiveGraph && inactiveGraph.n))
+          };
+        }
+
         const positions = [];
         const cx = W / 2;
-        const cy = mode === 'intersection' ? H * 0.39 : H / 2;
-        const initialRadius = Math.min(W, H) * (mode === 'intersection' ? 0.25 : 0.31);
+        const cy = isIntersectionMode(mode) ? H * 0.39 : H / 2;
+        const initialRadius = Math.min(W, H) * (isIntersectionMode(mode) ? 0.25 : 0.31);
         for (let i = 0; i < n; i++) {
           const angle = (2 * Math.PI * i) / Math.max(1, n) + (Math.random() - 0.5) * 0.35;
           const jitter = 0.78 + Math.random() * 0.34;
@@ -1100,12 +1134,12 @@
         const hasPeripheralVertices = hasInactiveVertices || Boolean(pruned && pruned.vertices.length);
         normalizePositions(
           positions,
-          mode === 'intersection' ? 58 : 56,
-          mode === 'intersection' ? 110 : 56,
+          isIntersectionMode(mode) ? 58 : 56,
+          isIntersectionMode(mode) ? 110 : 56,
           hasPeripheralVertices ? { minX: 150, maxX: W - 150 } : null
         );
         const featurePositions = [];
-        if (mode === 'intersection') {
+        if (isIntersectionMode(mode)) {
           const cols = Math.min(featureCount, 14);
           const rows = Math.ceil(featureCount / cols);
           const startY = H - 78 - (rows - 1) * 42;
@@ -1124,6 +1158,76 @@
           inactive: layoutInactiveGraph(inactiveGraph, mode),
           pruned: layoutPrunedVertices(pruned, positions, mode, hasInactiveVertices)
         };
+      }
+
+      function layoutIntersectionBetaGraph(n, features, featureCount) {
+        const featurePositions = [];
+        const count = Math.max(featureCount, features.length);
+        const leftCount = Math.ceil(count / 2);
+        const rightCount = Math.floor(count / 2);
+        const minY = 58;
+        const maxY = H - 62;
+        for (let f = 0; f < count; f++) {
+          const side = f % 2;
+          const slot = Math.floor(f / 2);
+          const slotCount = side === 0 ? leftCount : rightCount;
+          const yRatio = slotCount <= 1 ? 0.5 : (slot + 0.5) / slotCount;
+          featurePositions.push({
+            x: side === 0 ? 54 : W - 54,
+            y: minY + yRatio * (maxY - minY)
+          });
+        }
+
+        const memberships = Array.from({ length: n }, () => []);
+        for (let f = 0; f < features.length; f++) {
+          for (const v of features[f]) memberships[v].push(f);
+        }
+
+        const groups = new Map();
+        for (let v = 0; v < n; v++) {
+          const primary = memberships[v].length ? memberships[v][0] : -1;
+          const group = groups.get(primary) || [];
+          group.push(v);
+          groups.set(primary, group);
+        }
+
+        const positions = Array(n);
+        const center = { x: W / 2, y: H * 0.42 };
+        const fallback = groups.get(-1) || [];
+        groups.delete(-1);
+
+        for (const [feature, vertices] of groups) {
+          const anchor = featurePositions[feature] || center;
+          const side = anchor.x < W / 2 ? 1 : -1;
+          const cluster = { x: anchor.x + side * 142, y: anchor.y };
+          const radius = vertices.length <= 1 ? 0 : Math.min(54, 16 + Math.sqrt(vertices.length) * 13);
+          for (let i = 0; i < vertices.length; i++) {
+            const v = vertices[i];
+            const angle = -Math.PI / 2 + (2 * Math.PI * i) / vertices.length;
+            positions[v] = {
+              x: clamp(cluster.x + Math.cos(angle) * radius, 130, W - 130),
+              y: clamp(cluster.y + Math.sin(angle) * radius, 32, H - 32)
+            };
+          }
+        }
+
+        if (fallback.length) {
+          const radius = Math.min(70, 18 + Math.sqrt(fallback.length) * 14);
+          for (let i = 0; i < fallback.length; i++) {
+            const v = fallback[i];
+            const angle = -Math.PI / 2 + (2 * Math.PI * i) / fallback.length;
+            positions[v] = {
+              x: center.x + Math.cos(angle) * radius,
+              y: center.y + Math.sin(angle) * radius
+            };
+          }
+        }
+
+        for (let v = 0; v < n; v++) {
+          if (!positions[v]) positions[v] = { x: center.x, y: center.y };
+        }
+
+        return { vertices: positions, features: featurePositions };
       }
 
       function layoutPrunedVertices(pruned, activePositions, mode, hasInactiveVertices) {
@@ -1168,10 +1272,10 @@
           byAnchor.set(placement[i].anchor, list);
         }
 
-        const center = { x: W / 2, y: mode === 'intersection' ? H * 0.39 : H / 2 };
+        const center = { x: W / 2, y: isIntersectionMode(mode) ? H * 0.39 : H / 2 };
         const minX = hasInactiveVertices ? 116 : 24;
         const maxX = hasInactiveVertices ? W - 116 : W - 24;
-        const maxY = mode === 'intersection' ? H - 142 : H - 24;
+        const maxY = isIntersectionMode(mode) ? H - 142 : H - 24;
 
         for (const [anchor, vertices] of byAnchor) {
           const base = activePositions[anchor];
@@ -1206,7 +1310,7 @@
         if (!graph || !graph.n) return positions;
         const comps = activeComponents(graph, new Set()).sort((a, b) => b.length - a.length);
         const minY = 42;
-        const maxY = mode === 'intersection' ? H - 168 : H - 42;
+        const maxY = isIntersectionMode(mode) ? H - 168 : H - 42;
         const sideX = [72, W - 72];
         const sideTotals = [Math.ceil(comps.length / 2), Math.floor(comps.length / 2)];
         const sideUsed = [0, 0];
@@ -1264,7 +1368,7 @@
         const instance = config.mode === 'binomial' ? createBinomialInstance(config) : createIntersectionInstance(config);
         state = {
           ...instance,
-          positions: layoutGraph(instance.graph, config.mode, instance.features ? instance.features.length : 0, instance.inactiveGraph, instance.pruned),
+          positions: layoutGraph(instance.graph, config.mode, instance.features ? instance.features.length : 0, instance.inactiveGraph, instance.pruned, instance.features || []),
           removed: new Set(),
           history: [],
           reveal: false
@@ -1278,7 +1382,7 @@
         const c = state.config;
         paramsInfoEl.textContent = state.mode === 'binomial' ? `n=${c.n}, p=${formatNumber(c.p, 4)}` : `n=${c.n}, m=${c.m}, p=${formatNumber(c.p, 4)}`;
         fullNEl.textContent = String(c.n);
-        fullMEl.textContent = state.mode === 'intersection' ? String(c.m) : '-';
+        fullMEl.textContent = isIntersectionMode(state.mode) ? String(c.m) : '-';
         lccSizeEl.textContent = String(state.lccSize);
         outsideLccSizeEl.textContent = String(state.inactiveVertices.length);
         prunedLeavesEl.textContent = String(state.prunedLeaves);
@@ -1347,7 +1451,7 @@
         const frag = document.createDocumentFragment();
         renderInactiveEdges(frag);
         renderPrunedEdges(frag);
-        if (state.mode === 'intersection') {
+        if (isIntersectionMode(state.mode)) {
           for (let f = 0; f < state.features.length; f++) {
             for (const v of state.features[f]) {
               const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -1355,7 +1459,10 @@
               line.setAttribute('y1', state.positions.features[f].y);
               line.setAttribute('x2', state.positions.vertices[v].x);
               line.setAttribute('y2', state.positions.vertices[v].y);
-              line.setAttribute('class', state.removed.has(f) ? 'incidence removed' : 'incidence');
+              const classes = ['incidence'];
+              if (isIntersectionBetaMode(state.mode)) classes.push('beta');
+              if (state.removed.has(f)) classes.push('removed');
+              line.setAttribute('class', classes.join(' '));
               frag.appendChild(line);
             }
           }
@@ -1368,8 +1475,8 @@
           line.setAttribute('x2', state.positions.vertices[v].x);
           line.setAttribute('y2', state.positions.vertices[v].y);
           const edgeRemoved = state.mode === 'binomial' && (state.removed.has(u) || state.removed.has(v));
-          line.setAttribute('class', edgeRemoved ? 'edge removed' : 'edge');
-          if (!edgeRemoved && disconnected) {
+          line.setAttribute('class', edgeRemoved ? 'edge removed' : 'edge' + (isIntersectionBetaMode(state.mode) ? ' beta-projection' : ''));
+          if (!edgeRemoved && disconnected && !isIntersectionBetaMode(state.mode)) {
             line.setAttribute('stroke', palette[compIdByVertex[u] % palette.length]);
             line.setAttribute('opacity', '0.86');
           }
@@ -1443,7 +1550,7 @@
           if (state.mode === 'binomial') attachItemEvents(g, i);
           frag.appendChild(g);
         }
-        if (state.mode === 'intersection') renderFeatures(frag, optimal);
+        if (isIntersectionMode(state.mode)) renderFeatures(frag, optimal);
         nodeLayer.appendChild(frag);
       }
 
@@ -1590,7 +1697,7 @@
         componentCountEl.textContent = String(comps.length);
         undoBtn.disabled = state.history.length === 0;
 
-        const itemName = state.mode === 'intersection' ? 'cech' : 'wierzchołków';
+        const itemName = isIntersectionMode(state.mode) ? 'cech' : 'wierzchołków';
         if (!Number.isFinite(state.cut.k)) {
           setMessage(cutUnavailableMessage(state.cut.reason), 'warn');
         } else if (balanced && state.removed.size === state.cut.k) {
@@ -1602,7 +1709,7 @@
         } else if (activeCount < 2 * target) {
           setMessage(`Usunięto zbyt wiele wierzchołków: zostało ${activeCount}, a potrzeba co najmniej ${2 * target}.`, 'bad');
         } else {
-          setMessage(`Graf nadal nie spełnia celu. Usuń ${state.mode === 'intersection' ? 'cechy' : 'wierzchołki'}, aby powstały składowe rozmiaru co najmniej ${target}. Minimum: ${state.cut.k}.`);
+          setMessage(`Graf nadal nie spełnia celu. Usuń ${isIntersectionMode(state.mode) ? 'cechy' : 'wierzchołki'}, aby powstały składowe rozmiaru co najmniej ${target}. Minimum: ${state.cut.k}.`);
         }
 
         if (state.reveal && Number.isFinite(state.cut.k)) {
@@ -1610,7 +1717,7 @@
           if (degreeLabelsToggle.checked) {
             messageEl.textContent += ` Przykład optimum jest zaznaczony na planszy; powstają składowe rozmiarów ${sideSizes}.`;
           } else {
-            const labels = state.cut.separator.map(v => state.mode === 'intersection' ? 'F' + (v + 1) : String(v + 1)).join(', ');
+            const labels = state.cut.separator.map(v => isIntersectionMode(state.mode) ? 'F' + (v + 1) : String(v + 1)).join(', ');
             messageEl.textContent += labels ? ` Przykład optimum: usuń ${labels}; powstają składowe rozmiarów ${sideSizes}.` : '';
           }
         }

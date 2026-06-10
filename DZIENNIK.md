@@ -30,3 +30,5 @@
 - Zmieniono etykiety wierzchołków głównej składowej na numerację lokalną od `1` do liczby widocznych wierzchołków tej składowej.
 - Zmieniono regułę przycinania liści: pełna największa składowa jest używana bez przycinania, a liście są przycinane tylko wtedy, gdy dokładny solver nie radzi sobie z rozmiarem lub przekracza limit czasu.
 - Przycięte awaryjnie liście pozostają widoczne jako małe, blade, nieinteraktywne wierzchołki z bladymi krawędziami.
+- Wzmocniono widoczność awaryjnie przyciętych liści oraz ich połączeń z główną składową.
+- Dodano w opisie trybu dwumianowego uzasadnienie, czemu liście mogą zostać wyłączone z ruchów.

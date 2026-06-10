@@ -990,7 +990,13 @@
             positions[i].y += clamp(disp[i].y, -temp, temp);
           }
         }
-        normalizePositions(positions, mode === 'intersection' ? 58 : 56, mode === 'intersection' ? 110 : 56);
+        const hasInactiveVertices = Boolean(inactiveGraph && inactiveGraph.n);
+        normalizePositions(
+          positions,
+          mode === 'intersection' ? 58 : 56,
+          mode === 'intersection' ? 110 : 56,
+          hasInactiveVertices ? { minX: 150, maxX: W - 150 } : null
+        );
         const featurePositions = [];
         if (mode === 'intersection') {
           const cols = Math.min(featureCount, 14);
@@ -1011,20 +1017,22 @@
       function layoutInactiveGraph(graph, mode) {
         const positions = [];
         if (!graph || !graph.n) return positions;
-        const cx = W / 2;
-        const cy = mode === 'intersection' ? H * 0.36 : H / 2;
-        const rx = W / 2 - 36;
-        const ry = mode === 'intersection' ? H * 0.29 : H / 2 - 34;
-        const maxY = mode === 'intersection' ? H - 156 : H - 38;
         const comps = activeComponents(graph, new Set()).sort((a, b) => b.length - a.length);
+        const minY = 42;
+        const maxY = mode === 'intersection' ? H - 168 : H - 42;
+        const sideX = [72, W - 72];
+        const sideTotals = [Math.ceil(comps.length / 2), Math.floor(comps.length / 2)];
+        const sideUsed = [0, 0];
 
         for (let c = 0; c < comps.length; c++) {
           const comp = comps[c];
-          const angle = -Math.PI / 2 + (2 * Math.PI * c) / comps.length;
-          const jitter = 0.96 + Math.random() * 0.08;
+          const side = c % 2;
+          const slot = sideUsed[side]++;
+          const slotCount = Math.max(1, sideTotals[side]);
+          const yRatio = slotCount === 1 ? 0.5 : (slot + 0.5) / slotCount;
           const center = {
-            x: clamp(cx + Math.cos(angle) * rx * jitter, 30, W - 30),
-            y: clamp(cy + Math.sin(angle) * ry * jitter, 30, maxY)
+            x: sideX[side],
+            y: minY + yRatio * (maxY - minY)
           };
           const localRadius = comp.length <= 1 ? 0 : Math.min(28, 9 + comp.length * 3);
           for (let i = 0; i < comp.length; i++) {
@@ -1039,7 +1047,7 @@
         return positions;
       }
 
-      function normalizePositions(positions, marginX, marginY) {
+      function normalizePositions(positions, marginX, marginY, bounds = null) {
         if (!positions.length) return;
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const p of positions) {
@@ -1050,9 +1058,12 @@
         }
         const spanX = Math.max(1, maxX - minX);
         const spanY = Math.max(1, maxY - minY);
+        const boxMinX = bounds ? bounds.minX : marginX;
+        const boxMaxX = bounds ? bounds.maxX : W - marginX;
+        const usableW = boxMaxX - boxMinX;
         const usableH = H - marginY - 70;
-        const scale = Math.min((W - 2 * marginX) / spanX, usableH / spanY, 1.65);
-        const offsetX = (W - spanX * scale) / 2;
+        const scale = Math.min(usableW / spanX, usableH / spanY, 1.65);
+        const offsetX = boxMinX + (usableW - spanX * scale) / 2;
         const offsetY = marginY / 2 + (usableH - spanY * scale) / 2;
         for (const p of positions) {
           p.x = offsetX + (p.x - minX) * scale;
@@ -1189,12 +1200,13 @@
         for (let i = 0; i < state.graph.n; i++) {
           const pos = state.positions.vertices[i];
           const removed = state.mode === 'binomial' && state.removed.has(i);
+          const localLabel = i + 1;
           const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
           g.setAttribute('class', 'node' + (removed ? ' removed' : ''));
           g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
           g.setAttribute('tabindex', state.mode === 'binomial' ? '0' : '-1');
           g.setAttribute('role', state.mode === 'binomial' ? 'button' : 'img');
-          const label = state.mode === 'binomial' ? `${removed ? 'Przywróć' : 'Usuń'} wierzchołek ${state.graph.vertices[i] + 1}` : `Wierzchołek ${state.graph.vertices[i] + 1}`;
+          const label = state.mode === 'binomial' ? `${removed ? 'Przywróć' : 'Usuń'} wierzchołek ${localLabel}` : `Wierzchołek ${localLabel}`;
           g.setAttribute('aria-label', label);
           const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
           title.textContent = label;
@@ -1207,7 +1219,7 @@
           g.appendChild(circle);
           if (removed) addCross(g);
           const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          text.textContent = String(state.graph.vertices[i] + 1);
+          text.textContent = String(localLabel);
           g.appendChild(text);
           if (state.mode === 'binomial') attachItemEvents(g, i);
           frag.appendChild(g);
@@ -1350,7 +1362,7 @@
         }
 
         if (state.reveal && Number.isFinite(state.cut.k)) {
-          const labels = state.cut.separator.map(v => state.mode === 'intersection' ? 'F' + (v + 1) : String(state.graph.vertices[v] + 1)).join(', ');
+          const labels = state.cut.separator.map(v => state.mode === 'intersection' ? 'F' + (v + 1) : String(v + 1)).join(', ');
           const sideSizes = [state.cut.sideA.length, state.cut.sideB.length].sort((a, b) => b - a).join(' i ');
           messageEl.textContent += labels ? ` Przykład optimum: usuń ${labels}; powstają składowe rozmiarów ${sideSizes}.` : '';
         }

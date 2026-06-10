@@ -26,3 +26,5 @@
 - Dodano wizualizację wierzchołków spoza największej składowej jako małych, nieaktywnych punktów.
 - Dodano licznik wierzchołków poza największą składową w panelu stanu gry.
 - Wzmocniono wizualizację wierzchołków spoza największej składowej: są grupowane w swoje małe składowe i pokazują szare krawędzie między sobą.
+- Przesunięto wierzchołki spoza największej składowej do bocznych pasów planszy, aby nie nachodziły na główną składową.
+- Zmieniono etykiety wierzchołków głównej składowej na numerację lokalną od `1` do liczby widocznych wierzchołków tej składowej.

@@ -169,6 +169,13 @@
       opacity: 0.18;
     }
 
+    .inactive-edge {
+      stroke: #b8c1d0;
+      stroke-width: 1.25;
+      stroke-linecap: round;
+      opacity: 0.46;
+    }
+
     .incidence {
       stroke: #d8a273;
       stroke-width: 1.5;
@@ -194,11 +201,11 @@
     }
 
     .node.inactive circle.main {
-      fill: #d5dce8;
-      stroke: #aeb8c8;
+      fill: #c8d0dd;
+      stroke: #8794a8;
       stroke-width: 2;
       filter: none;
-      opacity: 0.78;
+      opacity: 0.9;
     }
 
     .feature rect.main { rx: 7; }
@@ -883,6 +890,7 @@
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           const fullEdges = generateBinomialEdges(config.n, config.p);
           const lccVertices = largestConnectedComponent(config.n, fullEdges);
+          const inactiveVertices = verticesOutside(config.n, lccVertices);
           const lccGraph = inducedGraph(lccVertices, fullEdges);
           const graph = removeDegreeOneVertices(lccGraph);
           const cut = minimumBalancedVertexCut(graph);
@@ -894,7 +902,8 @@
             cut,
             attempt,
             lccSize: lccGraph.n,
-            inactiveVertices: verticesOutside(config.n, lccVertices),
+            inactiveVertices,
+            inactiveGraph: inducedGraph(inactiveVertices, fullEdges),
             prunedLeaves: graph.removedLeaves
           };
           fallback = instance;
@@ -909,6 +918,7 @@
           const rawFeatures = generateIncidence(config.n, config.m, config.p);
           const fullEdges = edgesFromFeatures(config.n, rawFeatures);
           const lccVertices = largestConnectedComponent(config.n, fullEdges);
+          const inactiveVertices = verticesOutside(config.n, lccVertices);
           const features = restrictFeatures(rawFeatures, lccVertices);
           const graph = activeIntersectionGraph(lccVertices.length, features, new Set(), lccVertices);
           const cut = minimumFeatureCut(graph.n, features);
@@ -920,7 +930,8 @@
             cut,
             attempt,
             lccSize: graph.n,
-            inactiveVertices: verticesOutside(config.n, lccVertices),
+            inactiveVertices,
+            inactiveGraph: inducedGraph(inactiveVertices, fullEdges),
             prunedLeaves: 0
           };
           fallback = instance;
@@ -929,7 +940,7 @@
         return fallback;
       }
 
-      function layoutGraph(graph, mode, featureCount = 0, inactiveVertices = []) {
+      function layoutGraph(graph, mode, featureCount = 0, inactiveGraph = null) {
         const n = graph.n;
         const positions = [];
         const cx = W / 2;
@@ -994,24 +1005,36 @@
             featurePositions.push({ x, y: startY + row * 42 });
           }
         }
-        return { vertices: positions, features: featurePositions, inactive: layoutInactiveVertices(inactiveVertices.length, mode) };
+        return { vertices: positions, features: featurePositions, inactive: layoutInactiveGraph(inactiveGraph, mode) };
       }
 
-      function layoutInactiveVertices(count, mode) {
+      function layoutInactiveGraph(graph, mode) {
         const positions = [];
-        if (!count) return positions;
+        if (!graph || !graph.n) return positions;
         const cx = W / 2;
         const cy = mode === 'intersection' ? H * 0.36 : H / 2;
-        const rx = W / 2 - 38;
-        const ry = mode === 'intersection' ? H * 0.29 : H / 2 - 38;
+        const rx = W / 2 - 36;
+        const ry = mode === 'intersection' ? H * 0.29 : H / 2 - 34;
         const maxY = mode === 'intersection' ? H - 156 : H - 38;
-        for (let i = 0; i < count; i++) {
-          const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
+        const comps = activeComponents(graph, new Set()).sort((a, b) => b.length - a.length);
+
+        for (let c = 0; c < comps.length; c++) {
+          const comp = comps[c];
+          const angle = -Math.PI / 2 + (2 * Math.PI * c) / comps.length;
           const jitter = 0.96 + Math.random() * 0.08;
-          positions.push({
-            x: clamp(cx + Math.cos(angle) * rx * jitter, 28, W - 28),
-            y: clamp(cy + Math.sin(angle) * ry * jitter, 28, maxY)
-          });
+          const center = {
+            x: clamp(cx + Math.cos(angle) * rx * jitter, 30, W - 30),
+            y: clamp(cy + Math.sin(angle) * ry * jitter, 30, maxY)
+          };
+          const localRadius = comp.length <= 1 ? 0 : Math.min(28, 9 + comp.length * 3);
+          for (let i = 0; i < comp.length; i++) {
+            const v = comp[i];
+            const localAngle = -Math.PI / 2 + (2 * Math.PI * i) / comp.length;
+            positions[v] = {
+              x: clamp(center.x + Math.cos(localAngle) * localRadius, 20, W - 20),
+              y: clamp(center.y + Math.sin(localAngle) * localRadius, 20, maxY)
+            };
+          }
         }
         return positions;
       }
@@ -1043,7 +1066,7 @@
         const instance = config.mode === 'binomial' ? createBinomialInstance(config) : createIntersectionInstance(config);
         state = {
           ...instance,
-          positions: layoutGraph(instance.graph, config.mode, instance.features ? instance.features.length : 0, instance.inactiveVertices),
+          positions: layoutGraph(instance.graph, config.mode, instance.features ? instance.features.length : 0, instance.inactiveGraph),
           removed: new Set(),
           history: [],
           reveal: false
@@ -1113,6 +1136,7 @@
       function renderEdges(compIdByVertex, disconnected) {
         edgeLayer.innerHTML = '';
         const frag = document.createDocumentFragment();
+        renderInactiveEdges(frag);
         if (state.mode === 'intersection') {
           for (let f = 0; f < state.features.length; f++) {
             for (const v of state.features[f]) {
@@ -1142,6 +1166,19 @@
           frag.appendChild(line);
         }
         edgeLayer.appendChild(frag);
+      }
+
+      function renderInactiveEdges(frag) {
+        if (!state.inactiveGraph || !state.inactiveGraph.edges.length) return;
+        for (const [u, v] of state.inactiveGraph.edges) {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', state.positions.inactive[u].x);
+          line.setAttribute('y1', state.positions.inactive[u].y);
+          line.setAttribute('x2', state.positions.inactive[v].x);
+          line.setAttribute('y2', state.positions.inactive[v].y);
+          line.setAttribute('class', 'inactive-edge');
+          frag.appendChild(line);
+        }
       }
 
       function renderNodes(compIdByVertex, disconnected) {
@@ -1195,7 +1232,7 @@
 
           const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
           circle.setAttribute('class', 'main');
-          circle.setAttribute('r', '7');
+          circle.setAttribute('r', '8');
           g.appendChild(circle);
           frag.appendChild(g);
         }

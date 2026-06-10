@@ -19,3 +19,9 @@
 - Wypchnięto gałąź `main` do GitHuba.
 - Włączono GitHub Pages z gałęzi `main` i katalogu `/`.
 - Potwierdzono dostępność strony pod adresem `https://Dudek296.github.io/gra/`.
+
+## 2026-06-10
+
+- Sprawdzono dostęp do GitHuba: zapisany token `gh` dla konta `Dudek296` jest nieważny i wymaga ponownego logowania.
+- Dodano wizualizację wierzchołków spoza największej składowej jako małych, nieaktywnych punktów.
+- Dodano licznik wierzchołków poza największą składową w panelu stanu gry.

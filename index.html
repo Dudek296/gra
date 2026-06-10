@@ -182,10 +182,23 @@
     }
 
     .node, .feature { cursor: pointer; }
+    .node.inactive {
+      cursor: default;
+      pointer-events: none;
+    }
+
     .node circle.main, .feature rect.main {
       stroke: #fff;
       stroke-width: 3;
       filter: drop-shadow(0 5px 8px rgba(15, 23, 42, 0.22));
+    }
+
+    .node.inactive circle.main {
+      fill: #d5dce8;
+      stroke: #aeb8c8;
+      stroke-width: 2;
+      filter: none;
+      opacity: 0.78;
     }
 
     .feature rect.main { rx: 7; }
@@ -350,6 +363,7 @@
         <dt>Wierzchołki pełnego grafu</dt><dd id="fullN">-</dd>
         <dt>Cechy pełnego grafu</dt><dd id="fullM">-</dd>
         <dt>Wierzchołki w największej składowej</dt><dd id="lccSize">-</dd>
+        <dt>Poza największą składową</dt><dd id="outsideLccSize">-</dd>
         <dt>Liście usunięte przed grą</dt><dd id="prunedLeaves">-</dd>
         <dt>Wierzchołki w grze</dt><dd id="componentSize">-</dd>
         <dt>Wymagany rozmiar składowej</dt><dd id="targetSizeSide">-</dd>
@@ -411,6 +425,7 @@
       const fullNEl = el('fullN');
       const fullMEl = el('fullM');
       const lccSizeEl = el('lccSize');
+      const outsideLccSizeEl = el('outsideLccSize');
       const prunedLeavesEl = el('prunedLeaves');
       const componentSizeEl = el('componentSize');
       const targetSizeSideEl = el('targetSizeSide');
@@ -530,6 +545,15 @@
         }
         best.sort((a, b) => a - b);
         return best;
+      }
+
+      function verticesOutside(n, keptVertices) {
+        const kept = new Set(keptVertices);
+        const outside = [];
+        for (let v = 0; v < n; v++) {
+          if (!kept.has(v)) outside.push(v);
+        }
+        return outside;
       }
 
       function inducedGraph(vertices, fullEdges) {
@@ -805,9 +829,9 @@
         return features.map(list => list.filter(v => map.has(v)).map(v => map.get(v))).filter(list => list.length >= 2);
       }
 
-      function activeIntersectionGraph(n, features, removedFeatures) {
+      function activeIntersectionGraph(n, features, removedFeatures, vertices = Array.from({ length: n }, (_, i) => i)) {
         const edges = edgesFromFeatures(n, features, removedFeatures);
-        return { n, vertices: Array.from({ length: n }, (_, i) => i), edges, adj: buildAdj(n, edges) };
+        return { n, vertices, edges, adj: buildAdj(n, edges) };
       }
 
       function isBalancedAfterFeatureRemoval(n, features, removed, target) {
@@ -862,7 +886,17 @@
           const lccGraph = inducedGraph(lccVertices, fullEdges);
           const graph = removeDegreeOneVertices(lccGraph);
           const cut = minimumBalancedVertexCut(graph);
-          const instance = { mode: 'binomial', config, fullEdges, graph, cut, attempt, lccSize: lccGraph.n, prunedLeaves: graph.removedLeaves };
+          const instance = {
+            mode: 'binomial',
+            config,
+            fullEdges,
+            graph,
+            cut,
+            attempt,
+            lccSize: lccGraph.n,
+            inactiveVertices: verticesOutside(config.n, lccVertices),
+            prunedLeaves: graph.removedLeaves
+          };
           fallback = instance;
           if (graph.n >= 6 && Number.isFinite(cut.k) && cut.k > 0) return instance;
         }
@@ -876,16 +910,26 @@
           const fullEdges = edgesFromFeatures(config.n, rawFeatures);
           const lccVertices = largestConnectedComponent(config.n, fullEdges);
           const features = restrictFeatures(rawFeatures, lccVertices);
-          const graph = activeIntersectionGraph(lccVertices.length, features, new Set());
+          const graph = activeIntersectionGraph(lccVertices.length, features, new Set(), lccVertices);
           const cut = minimumFeatureCut(graph.n, features);
-          const instance = { mode: 'intersection', config, features, graph, cut, attempt, lccSize: graph.n, prunedLeaves: 0 };
+          const instance = {
+            mode: 'intersection',
+            config,
+            features,
+            graph,
+            cut,
+            attempt,
+            lccSize: graph.n,
+            inactiveVertices: verticesOutside(config.n, lccVertices),
+            prunedLeaves: 0
+          };
           fallback = instance;
           if (graph.n >= 6 && features.length >= 2 && Number.isFinite(cut.k) && cut.k > 0) return instance;
         }
         return fallback;
       }
 
-      function layoutGraph(graph, mode, featureCount = 0) {
+      function layoutGraph(graph, mode, featureCount = 0, inactiveVertices = []) {
         const n = graph.n;
         const positions = [];
         const cx = W / 2;
@@ -950,7 +994,26 @@
             featurePositions.push({ x, y: startY + row * 42 });
           }
         }
-        return { vertices: positions, features: featurePositions };
+        return { vertices: positions, features: featurePositions, inactive: layoutInactiveVertices(inactiveVertices.length, mode) };
+      }
+
+      function layoutInactiveVertices(count, mode) {
+        const positions = [];
+        if (!count) return positions;
+        const cx = W / 2;
+        const cy = mode === 'intersection' ? H * 0.36 : H / 2;
+        const rx = W / 2 - 38;
+        const ry = mode === 'intersection' ? H * 0.29 : H / 2 - 38;
+        const maxY = mode === 'intersection' ? H - 156 : H - 38;
+        for (let i = 0; i < count; i++) {
+          const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
+          const jitter = 0.96 + Math.random() * 0.08;
+          positions.push({
+            x: clamp(cx + Math.cos(angle) * rx * jitter, 28, W - 28),
+            y: clamp(cy + Math.sin(angle) * ry * jitter, 28, maxY)
+          });
+        }
+        return positions;
       }
 
       function normalizePositions(positions, marginX, marginY) {
@@ -980,7 +1043,7 @@
         const instance = config.mode === 'binomial' ? createBinomialInstance(config) : createIntersectionInstance(config);
         state = {
           ...instance,
-          positions: layoutGraph(instance.graph, config.mode, instance.features ? instance.features.length : 0),
+          positions: layoutGraph(instance.graph, config.mode, instance.features ? instance.features.length : 0, instance.inactiveVertices),
           removed: new Set(),
           history: [],
           reveal: false
@@ -996,6 +1059,7 @@
         fullNEl.textContent = String(c.n);
         fullMEl.textContent = state.mode === 'intersection' ? String(c.m) : '-';
         lccSizeEl.textContent = String(state.lccSize);
+        outsideLccSizeEl.textContent = String(state.inactiveVertices.length);
         prunedLeavesEl.textContent = String(state.prunedLeaves);
         componentSizeEl.textContent = String(state.graph.n);
         targetSizeSideEl.textContent = String(state.cut.minComponentSize || Math.ceil(state.graph.n / 3));
@@ -1039,7 +1103,7 @@
 
       function currentActiveGraph() {
         if (state.mode === 'binomial') return state.graph;
-        return activeIntersectionGraph(state.graph.n, state.features, state.removed);
+        return activeIntersectionGraph(state.graph.n, state.features, state.removed, state.graph.vertices);
       }
 
       function currentComponents() {
@@ -1084,6 +1148,7 @@
         nodeLayer.innerHTML = '';
         const frag = document.createDocumentFragment();
         const optimal = new Set(state.reveal ? state.cut.separator : []);
+        renderInactiveVertices(frag);
         for (let i = 0; i < state.graph.n; i++) {
           const pos = state.positions.vertices[i];
           const removed = state.mode === 'binomial' && state.removed.has(i);
@@ -1112,6 +1177,28 @@
         }
         if (state.mode === 'intersection') renderFeatures(frag, optimal);
         nodeLayer.appendChild(frag);
+      }
+
+      function renderInactiveVertices(frag) {
+        for (let i = 0; i < state.inactiveVertices.length; i++) {
+          const pos = state.positions.inactive[i];
+          const label = state.inactiveVertices[i] + 1;
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', 'node inactive');
+          g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
+          g.setAttribute('role', 'img');
+          g.setAttribute('aria-label', `Wierzchołek ${label} poza największą składową`);
+
+          const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+          title.textContent = `Wierzchołek ${label} poza największą składową`;
+          g.appendChild(title);
+
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('class', 'main');
+          circle.setAttribute('r', '7');
+          g.appendChild(circle);
+          frag.appendChild(g);
+        }
       }
 
       function renderFeatures(frag, optimal) {

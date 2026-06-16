@@ -37,3 +37,4 @@
 - Dodano osobny tryb `Graf przecięć - beta`, zachowując poprzedni tryb grafu przecięć do porównania.
 - W trybie beta cechy są rozmieszczone po bokach planszy, wierzchołki są grupowane według pierwszej cechy, a zwykłe krawędzie grafu przecięć są wyciszone.
 - Poprawiono tryb `Graf przecięć - beta`: cechy wróciły na dół planszy, a wierzchołki są układane w kliki od lewej do prawej według pierwszej cechy.
+- W zwykłym trybie grafu przecięć dodano większy odstęp między wierzchołkami a cechami oraz przycisk przełączający układ wierzchołków na kliki.

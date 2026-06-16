@@ -409,6 +409,7 @@
             <button id="reset" type="button">Resetuj ruchy</button>
             <button id="undo" type="button">Cofnij</button>
             <button id="reveal" type="button">Pokaż przykład optimum</button>
+            <button id="layoutToggle" type="button">Układ w kliki</button>
           </div>
           <div class="status-line" aria-live="polite">
             <span class="pill"><span id="removedLabel">Usunięte</span>: <strong id="removedCount">0</strong></span>
@@ -487,6 +488,7 @@
       const resetBtn = el('reset');
       const undoBtn = el('undo');
       const revealBtn = el('reveal');
+      const layoutToggleBtn = el('layoutToggle');
 
       const removedCountEl = el('removedCount');
       const removedLabelEl = el('removedLabel');
@@ -535,6 +537,10 @@
         return mode === 'intersectionBeta';
       }
 
+      function isCliqueLayoutState() {
+        return Boolean(state && isIntersectionMode(state.mode) && state.layoutStyle === 'clique');
+      }
+
       function currentConfig() {
         const mode = modeSelect.value;
         const difficulty = difficultySelect.value;
@@ -569,7 +575,16 @@
           pInput.disabled = false;
         }
         removedLabelEl.textContent = isIntersectionMode(mode) ? 'Usunięte cechy' : 'Usunięte';
+        updateLayoutToggle();
         updateStaticText();
+      }
+
+      function updateLayoutToggle() {
+        const active = state ? isIntersectionMode(state.mode) : isIntersectionMode(modeSelect.value);
+        const style = state ? state.layoutStyle : (isIntersectionBetaMode(modeSelect.value) ? 'clique' : 'force');
+        layoutToggleBtn.classList.toggle('hidden', !active);
+        layoutToggleBtn.disabled = !active;
+        layoutToggleBtn.textContent = style === 'clique' ? 'Układ standardowy' : 'Układ w kliki';
       }
 
       function updateStaticText() {
@@ -1070,15 +1085,16 @@
         return fallback;
       }
 
-      function layoutGraph(graph, mode, featureCount = 0, inactiveGraph = null, pruned = emptyPrunedVisualization(), features = []) {
+      function layoutGraph(graph, mode, featureCount = 0, inactiveGraph = null, pruned = emptyPrunedVisualization(), features = [], layoutStyle = 'force') {
         const n = graph.n;
-        if (isIntersectionBetaMode(mode)) {
-          const betaLayout = layoutIntersectionBetaGraph(n, features, featureCount);
+        const featureLayout = isIntersectionMode(mode) ? layoutFeaturePositions(featureCount) : { positions: [], startY: H };
+        if (isIntersectionMode(mode) && (isIntersectionBetaMode(mode) || layoutStyle === 'clique')) {
+          const cliqueLayout = layoutIntersectionCliqueGraph(n, features, featureCount, featureLayout);
           return {
-            vertices: betaLayout.vertices,
-            features: betaLayout.features,
+            vertices: cliqueLayout.vertices,
+            features: cliqueLayout.features,
             inactive: layoutInactiveGraph(inactiveGraph, mode),
-            pruned: layoutPrunedVertices(pruned, betaLayout.vertices, mode, Boolean(inactiveGraph && inactiveGraph.n))
+            pruned: layoutPrunedVertices(pruned, cliqueLayout.vertices, mode, Boolean(inactiveGraph && inactiveGraph.n))
           };
         }
 
@@ -1136,35 +1152,29 @@
           positions,
           isIntersectionMode(mode) ? 58 : 56,
           isIntersectionMode(mode) ? 110 : 56,
-          hasPeripheralVertices ? { minX: 150, maxX: W - 150 } : null
+          isIntersectionMode(mode)
+            ? {
+                minX: hasPeripheralVertices ? 150 : 58,
+                maxX: hasPeripheralVertices ? W - 150 : W - 58,
+                minY: 58,
+                maxY: Math.max(170, featureLayout.startY - 60)
+              }
+            : (hasPeripheralVertices ? { minX: 150, maxX: W - 150 } : null)
         );
-        const featurePositions = [];
-        if (isIntersectionMode(mode)) {
-          const cols = Math.min(featureCount, 14);
-          const rows = Math.ceil(featureCount / cols);
-          const startY = H - 78 - (rows - 1) * 42;
-          for (let f = 0; f < featureCount; f++) {
-            const row = Math.floor(f / cols);
-            const col = f % cols;
-            const rowCount = row === rows - 1 ? featureCount - row * cols : cols;
-            const gap = Math.min(58, (W - 110) / Math.max(1, rowCount - 1));
-            const x = rowCount === 1 ? W / 2 : (W - gap * (rowCount - 1)) / 2 + col * gap;
-            featurePositions.push({ x, y: startY + row * 42 });
-          }
-        }
         return {
           vertices: positions,
-          features: featurePositions,
+          features: featureLayout.positions,
           inactive: layoutInactiveGraph(inactiveGraph, mode),
           pruned: layoutPrunedVertices(pruned, positions, mode, hasInactiveVertices)
         };
       }
 
-      function layoutIntersectionBetaGraph(n, features, featureCount) {
-        const featurePositions = [];
-        const count = Math.max(featureCount, features.length);
+      function layoutFeaturePositions(featureCount) {
+        const positions = [];
+        const count = Math.max(0, featureCount);
+        if (!count) return { positions, cols: 1, rows: 1, startY: H - 78 };
         const cols = Math.min(count, 14);
-        const rows = Math.max(1, Math.ceil(count / Math.max(1, cols)));
+        const rows = Math.ceil(count / cols);
         const startY = H - 78 - (rows - 1) * 42;
         for (let f = 0; f < count; f++) {
           const row = Math.floor(f / cols);
@@ -1172,8 +1182,18 @@
           const rowCount = row === rows - 1 ? count - row * cols : cols;
           const gap = Math.min(58, (W - 110) / Math.max(1, rowCount - 1));
           const x = rowCount === 1 ? W / 2 : (W - gap * (rowCount - 1)) / 2 + col * gap;
-          featurePositions.push({ x, y: startY + row * 42 });
+          positions.push({ x, y: startY + row * 42 });
         }
+        return { positions, cols, rows, startY };
+      }
+
+      function layoutIntersectionCliqueGraph(n, features, featureCount, featureLayout = layoutFeaturePositions(featureCount)) {
+        const count = Math.max(featureCount, features.length);
+        const resolvedFeatureLayout = featureLayout.positions.length === count ? featureLayout : layoutFeaturePositions(count);
+        const featurePositions = resolvedFeatureLayout.positions;
+        const cols = resolvedFeatureLayout.cols || Math.min(Math.max(count, 1), 14);
+        const rows = resolvedFeatureLayout.rows || Math.max(1, Math.ceil(count / Math.max(1, cols)));
+        const startY = resolvedFeatureLayout.startY || H - 78;
 
         const memberships = Array.from({ length: n }, () => []);
         for (let f = 0; f < features.length; f++) {
@@ -1354,11 +1374,13 @@
         const spanY = Math.max(1, maxY - minY);
         const boxMinX = bounds ? bounds.minX : marginX;
         const boxMaxX = bounds ? bounds.maxX : W - marginX;
+        const boxMinY = bounds && bounds.minY !== undefined ? bounds.minY : marginY / 2;
+        const boxMaxY = bounds && bounds.maxY !== undefined ? bounds.maxY : H - marginY / 2 - 70;
         const usableW = boxMaxX - boxMinX;
-        const usableH = H - marginY - 70;
+        const usableH = Math.max(1, boxMaxY - boxMinY);
         const scale = Math.min(usableW / spanX, usableH / spanY, 1.65);
         const offsetX = boxMinX + (usableW - spanX * scale) / 2;
-        const offsetY = marginY / 2 + (usableH - spanY * scale) / 2;
+        const offsetY = boxMinY + (usableH - spanY * scale) / 2;
         for (const p of positions) {
           p.x = offsetX + (p.x - minX) * scale;
           p.y = offsetY + (p.y - minY) * scale;
@@ -1369,14 +1391,17 @@
         syncControls();
         const config = currentConfig();
         const instance = config.mode === 'binomial' ? createBinomialInstance(config) : createIntersectionInstance(config);
+        const layoutStyle = isIntersectionBetaMode(config.mode) ? 'clique' : 'force';
         state = {
           ...instance,
-          positions: layoutGraph(instance.graph, config.mode, instance.features ? instance.features.length : 0, instance.inactiveGraph, instance.pruned, instance.features || []),
+          positions: layoutGraph(instance.graph, config.mode, instance.features ? instance.features.length : 0, instance.inactiveGraph, instance.pruned, instance.features || [], layoutStyle),
+          layoutStyle,
           removed: new Set(),
           history: [],
           reveal: false
         };
         revealBtn.textContent = 'Pokaż przykład optimum';
+        updateLayoutToggle();
         updateStats();
         render();
       }
@@ -1429,6 +1454,22 @@
         render();
       }
 
+      function toggleLayoutStyle() {
+        if (!state || !isIntersectionMode(state.mode)) return;
+        state.layoutStyle = state.layoutStyle === 'clique' ? 'force' : 'clique';
+        state.positions = layoutGraph(
+          state.graph,
+          state.mode,
+          state.features ? state.features.length : 0,
+          state.inactiveGraph,
+          state.pruned,
+          state.features || [],
+          state.layoutStyle
+        );
+        updateLayoutToggle();
+        render();
+      }
+
       function currentActiveGraph() {
         if (state.mode === 'binomial') return state.graph;
         return activeIntersectionGraph(state.graph.n, state.features, state.removed, state.graph.vertices);
@@ -1463,7 +1504,7 @@
               line.setAttribute('x2', state.positions.vertices[v].x);
               line.setAttribute('y2', state.positions.vertices[v].y);
               const classes = ['incidence'];
-              if (isIntersectionBetaMode(state.mode)) classes.push('beta');
+              if (isCliqueLayoutState()) classes.push('beta');
               if (state.removed.has(f)) classes.push('removed');
               line.setAttribute('class', classes.join(' '));
               frag.appendChild(line);
@@ -1478,8 +1519,8 @@
           line.setAttribute('x2', state.positions.vertices[v].x);
           line.setAttribute('y2', state.positions.vertices[v].y);
           const edgeRemoved = state.mode === 'binomial' && (state.removed.has(u) || state.removed.has(v));
-          line.setAttribute('class', edgeRemoved ? 'edge removed' : 'edge' + (isIntersectionBetaMode(state.mode) ? ' beta-projection' : ''));
-          if (!edgeRemoved && disconnected && !isIntersectionBetaMode(state.mode)) {
+          line.setAttribute('class', edgeRemoved ? 'edge removed' : 'edge' + (isCliqueLayoutState() ? ' beta-projection' : ''));
+          if (!edgeRemoved && disconnected && !isCliqueLayoutState()) {
             line.setAttribute('stroke', palette[compIdByVertex[u] % palette.length]);
             line.setAttribute('opacity', '0.86');
           }
@@ -1732,6 +1773,7 @@
       resetBtn.addEventListener('click', resetMoves);
       undoBtn.addEventListener('click', undo);
       revealBtn.addEventListener('click', toggleReveal);
+      layoutToggleBtn.addEventListener('click', toggleLayoutStyle);
       degreeLabelsToggle.addEventListener('change', render);
 
       document.addEventListener('keydown', event => {

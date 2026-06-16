@@ -46,3 +46,4 @@
 - Dodano drugi wariant celu gry: największa pozostała składowa ma być mniejsza niż połowa początkowej składowej w grze.
 - Zwiększono pola trafienia elementów SVG i szerokość planszy na małych ekranach, żeby obsługa dotykowa była wygodniejsza.
 - Doprecyzowano opisy celu `< 1/2`: próg jest warunkiem sukcesu, a wynikiem gry pozostaje minimalna liczba usuniętych elementów.
+- Zmiana celu gry przelicza optimum na tej samej planszy zamiast losować nowy graf.

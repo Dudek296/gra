@@ -1737,6 +1737,21 @@
         render();
       }
 
+      function changeGoal() {
+        syncControls();
+        if (!state) {
+          newGame();
+          return;
+        }
+        const goal = goalSelect.value;
+        state.config = { ...state.config, goal };
+        state.cut = state.mode === 'binomial'
+          ? minimumVertexCut(state.graph, goal)
+          : minimumFeatureCut(state.graph.n, state.features, goal);
+        updateStats();
+        render();
+      }
+
       function updateStats() {
         const c = state.config;
         paramsInfoEl.textContent = state.mode === 'binomial' ? `n=${c.n}, p=${formatNumber(c.p, 4)}` : `n=${c.n}, m=${c.m}, p=${formatNumber(c.p, 4)}`;
@@ -2123,7 +2138,7 @@
       }
 
       modeSelect.addEventListener('change', () => { syncControls(); newGame(); });
-      goalSelect.addEventListener('change', () => { syncControls(); newGame(); });
+      goalSelect.addEventListener('change', changeGoal);
       difficultySelect.addEventListener('change', () => { syncControls(); });
       newGraphBtn.addEventListener('click', newGame);
       resetBtn.addEventListener('click', resetMoves);

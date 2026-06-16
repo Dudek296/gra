@@ -397,7 +397,7 @@
           <label>Cel gry
             <select id="goalSelect">
               <option value="balanced">Dwie duże składowe</option>
-              <option value="half">Największa &lt; 1/2</option>
+              <option value="half">Największa &lt; 1/2, minimum usunięć</option>
             </select>
           </label>
           <label>Poziom trudności
@@ -432,7 +432,7 @@
           </div>
           <div class="status-line" aria-live="polite">
             <span class="pill"><span id="removedLabel">Usunięte</span>: <strong id="removedCount">0</strong></span>
-            <span class="pill">Minimum: <strong id="minimumCut">?</strong></span>
+            <span class="pill"><span id="minimumLabel">Minimum</span>: <strong id="minimumCut">?</strong></span>
             <span class="pill">Próg: <strong id="targetSize">?</strong></span>
             <span class="pill">Składowe: <strong id="componentCount">1</strong></span>
           </div>
@@ -474,8 +474,9 @@
       const H = 620;
       const MAX_ATTEMPTS = 1200;
       const MAX_EXACT_VERTICES = 30;
-      const MAX_HALF_EXACT_VERTICES = 24;
+      const MAX_HALF_EXACT_VERTICES = MAX_EXACT_VERTICES;
       const VERTEX_SEARCH_TIME_MS = 1800;
+      const HALF_VERTEX_SEARCH_TIME_MS = 2500;
       const FEATURE_SEARCH_TIME_MS = 1700;
       const palette = ['#2563eb', '#d64550', '#118447', '#7c3aed', '#b45309', '#0f8995', '#be185d', '#52677a'];
 
@@ -513,6 +514,7 @@
 
       const removedCountEl = el('removedCount');
       const removedLabelEl = el('removedLabel');
+      const minimumLabelEl = el('minimumLabel');
       const minimumCutEl = el('minimumCut');
       const targetSizeEl = el('targetSize');
       const componentCountEl = el('componentCount');
@@ -623,8 +625,8 @@
       function updateStaticText() {
         const mode = modeSelect.value;
         const goalText = isHalfGoal(goalSelect.value)
-          ? '<p><strong>Warunek celu:</strong> największa pozostała składowa ma mieć rozmiar mniejszy niż połowa początkowej składowej w grze. Małe izolowane składowe są dozwolone.</p>'
-          : '<p><strong>Warunek celu:</strong> po usunięciach mają powstać co najmniej dwie składowe, a każda z nich musi mieć rozmiar co najmniej 1/3 początkowej składowej w grze.</p>';
+          ? '<p><strong>Warunek celu:</strong> największa pozostała składowa ma mieć rozmiar mniejszy niż połowa początkowej składowej w grze. Małe izolowane składowe są dozwolone, ale wynikiem gry jest jak najmniejsza liczba usuniętych elementów potrzebna do spełnienia tego warunku.</p>'
+          : '<p><strong>Warunek celu:</strong> po usunięciach mają powstać co najmniej dwie składowe, a każda z nich musi mieć rozmiar co najmniej 1/3 początkowej składowej w grze. Wynikiem gry jest jak najmniejsza liczba usuniętych elementów potrzebna do spełnienia tego warunku.</p>';
         if (mode === 'binomial') {
           leadText.innerHTML = 'Tryb dwumianowy losuje graf <strong>G(n,p)</strong> i pokazuje największą składową spójności jako główną planszę. Celem jest usunięcie jak najmniejszej liczby wierzchołków według wybranego wariantu celu gry.';
           rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj wierzchołki, aby usuwać je z planszy. Kliknięcie usuniętego wierzchołka przywraca go.</p>' + goalText + '<p>Poziom normalny odpowiada wersji startowej: <code>n=50</code> oraz średni stopień około <code>3</code>. Poziomy łatwy i trudny używają odpowiednio <code>n=30</code> i <code>n=70</code>.</p><p>Liście są uwzględniane w grze, o ile dokładny solver daje radę policzyć planszę. Gdy solver przekracza limit rozmiaru albo czasu, liście są wyłączane z ruchów, bo nie pomagają w zrównoważonym rozspójnieniu: odcięcie liścia tworzyłoby zbyt małą składową, a usuwanie go tylko zużywa ruch. Takie liście pozostają widoczne jako blade wierzchołki z bladymi połączeniami.</p>';
@@ -1068,7 +1070,7 @@
 
         function search(removedMask, depthLeft) {
           calls++;
-          if (calls % 25000 === 0 && Date.now() - startedAt > VERTEX_SEARCH_TIME_MS) throw new Error('timeout');
+          if (calls % 25000 === 0 && Date.now() - startedAt > HALF_VERTEX_SEARCH_TIME_MS) throw new Error('timeout');
           const activeMask = fullMask ^ removedMask;
           const largest = largestComponentInMask(activeMask, adjMasks);
           if (largest.size <= maxComponentSize) return removedMask;
@@ -2083,6 +2085,7 @@
         renderNodes(compIdByVertex, disconnected, degreeLabels);
 
         removedCountEl.textContent = String(state.removed.size);
+        minimumLabelEl.textContent = Number.isFinite(state.cut.k) && state.cut.exact === false ? 'Znaleziono' : 'Minimum';
         minimumCutEl.textContent = cutSizeLabel(state.cut);
         targetSizeEl.textContent = goalThresholdLabel(state.cut, state.graph.n);
         componentCountEl.textContent = String(comps.length);
@@ -2103,7 +2106,7 @@
         } else if (!halfGoal && activeCount < 2 * target) {
           setMessage(`Usunięto zbyt wiele wierzchołków: zostało ${activeCount}, a potrzeba co najmniej ${2 * target}.`, 'bad');
         } else if (halfGoal) {
-          setMessage(`Największa składowa ma rozmiar ${largestSize}; cel wymaga rozmiaru co najwyżej ${target}. Usuń ${isIntersectionMode(state.mode) ? 'cechy' : 'wierzchołki'}. Najlepszy wynik do porównania: ${cutSizeLabel(state.cut)}.`);
+          setMessage(`Największa składowa ma rozmiar ${largestSize}; cel wymaga rozmiaru co najwyżej ${target}. Usuń jak najmniej ${isIntersectionMode(state.mode) ? 'cech' : 'wierzchołków'}. ${state.cut.exact === false ? 'Najlepszy znaleziony wynik' : 'Minimum'} do porównania: ${cutSizeLabel(state.cut)}.`);
         } else {
           setMessage(`Graf nadal nie spełnia celu. Usuń ${isIntersectionMode(state.mode) ? 'cechy' : 'wierzchołki'}, aby powstały składowe rozmiaru co najmniej ${target}. Minimum: ${state.cut.k}.`);
         }

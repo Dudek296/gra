@@ -45,3 +45,4 @@
 - Poprawiono układ klik: szare wierzchołki spoza największej składowej trafiają do górnego pasa, a aktywne kliki mają większe odstępy.
 - Dodano drugi wariant celu gry: największa pozostała składowa ma być mniejsza niż połowa początkowej składowej w grze.
 - Zwiększono pola trafienia elementów SVG i szerokość planszy na małych ekranach, żeby obsługa dotykowa była wygodniejsza.
+- Doprecyzowano opisy celu `< 1/2`: próg jest warunkiem sukcesu, a wynikiem gry pozostaje minimalna liczba usuniętych elementów.

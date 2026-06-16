@@ -38,3 +38,10 @@
 - W trybie beta cechy są rozmieszczone po bokach planszy, wierzchołki są grupowane według pierwszej cechy, a zwykłe krawędzie grafu przecięć są wyciszone.
 - Poprawiono tryb `Graf przecięć - beta`: cechy wróciły na dół planszy, a wierzchołki są układane w kliki od lewej do prawej według pierwszej cechy.
 - W zwykłym trybie grafu przecięć dodano większy odstęp między wierzchołkami a cechami oraz przycisk przełączający układ wierzchołków na kliki.
+
+## 2026-06-17
+
+- Usunięto osobny model `Graf przecięć - beta`; układ klik pozostał jako przełącznik w zwykłym grafie przecięć.
+- Poprawiono układ klik: szare wierzchołki spoza największej składowej trafiają do górnego pasa, a aktywne kliki mają większe odstępy.
+- Dodano drugi wariant celu gry: największa pozostała składowa ma być mniejsza niż połowa początkowej składowej w grze.
+- Zwiększono pola trafienia elementów SVG i szerokość planszy na małych ekranach, żeby obsługa dotykowa była wygodniejsza.

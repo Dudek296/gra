@@ -434,7 +434,7 @@
 <body>
   <header>
     <h1>Rozspójnianie grafu losowego</h1>
-    <p class="lead" id="leadText"></p>
+    <p class="lead">Graf dwumianowy losuje graf i pozwala usuwać wierzchołki. Graf przecięć losuje wierzchołki oraz osobne cechy, a ruch polega na usuwaniu cech tworzących połączenia.</p>
   </header>
 
   <main>
@@ -443,14 +443,14 @@
         <div class="control-grid">
           <label>Model grafu
             <select id="modeSelect">
-              <option value="binomial">Graf dwumianowy G(n,p)</option>
+              <option value="binomial">Graf dwumianowy</option>
               <option value="intersection">Graf przecięć</option>
             </select>
           </label>
           <label>Cel gry
             <select id="goalSelect">
               <option value="balanced">Dwie duże składowe</option>
-              <option value="half">Największa &lt; 1/2, minimum usunięć</option>
+              <option value="half">Największa &lt; 1/2</option>
             </select>
           </label>
           <label>Poziom trudności
@@ -554,7 +554,6 @@
       const el = id => document.getElementById(id);
       const edgeLayer = el('edgeLayer');
       const nodeLayer = el('nodeLayer');
-      const leadText = el('leadText');
       const rulesText = el('rulesText');
       const messageEl = el('message');
       const modeSelect = el('modeSelect');
@@ -713,10 +712,8 @@
           '<details><summary>Podpowiedź 2: Graf dwumianowy</summary><p>Wysoki stopień jest dobrym punktem startu, ale nie gwarantuje optimum. Najlepszy separator może leżeć w wąskim gardle między dwiema grupami wierzchołków, nawet jeśli te wierzchołki nie mają największych stopni.</p></details>' +
           '<details><summary>Podpowiedź 3: Graf przecięć</summary><p>W grafie przecięć jedna cecha zwykle tworzy klikę wśród wierzchołków, które ją mają. Szukaj cech, które łączą różne kliki lub grupy: ich usunięcie może przeciąć połączenia między klikami skuteczniej niż usuwanie cech działających głównie wewnątrz jednej gęstej grupy.</p></details>';
         if (mode === 'binomial') {
-          leadText.innerHTML = 'Tryb dwumianowy losuje graf <strong>G(n,p)</strong> i pokazuje największą składową spójności jako główną planszę. Celem jest usunięcie jak najmniejszej liczby wierzchołków według wybranego wariantu celu gry.';
           rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj wierzchołki, aby usuwać je z planszy. Kliknięcie usuniętego wierzchołka przywraca go.</p>' + goalText + hintsText + '<p>Liście są uwzględniane w grze, o ile dokładny solver daje radę policzyć planszę. Gdy solver przekracza limit rozmiaru albo czasu, liście są wyłączane z ruchów, bo nie pomagają w zrównoważonym rozspójnieniu: odcięcie liścia tworzyłoby zbyt małą składową, a usuwanie go tylko zużywa ruch. Takie liście pozostają widoczne jako blade wierzchołki z bladymi połączeniami.</p>';
         } else {
-          leadText.innerHTML = 'Tryb grafu przecięć losuje wierzchołki i osobne cechy. Wierzchołki są połączone, gdy mają wspólną aktywną cechę. Celem jest usunięcie jak najmniejszej liczby cech według wybranego wariantu celu gry.';
           rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj prostokątne cechy w dolnym rzędzie. Usunięcie cechy kasuje wszystkie połączenia, które ona tworzy.</p>' + goalText + hintsText + '<p>Przycisk <strong>Układ w kliki</strong> grupuje wierzchołki według pierwszej cechy, która je zawiera, bez losowania nowej planszy.</p>';
         }
       }

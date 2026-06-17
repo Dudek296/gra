@@ -15,7 +15,6 @@ Docelowy adres GitHub Pages:
 
 - Łatwy.
 - Normalny.
-- Trudny.
 - Własny z ręcznym doborem parametrów.
 
 Strona działa jako pojedynczy plik `index.html` bez procesu budowania.

@@ -408,13 +408,11 @@
               <option value="balanced">Dwie duże składowe</option>
               <option value="half">Największa &lt; 1/2, minimum usunięć</option>
             </select>
-            <span id="goalNotice" class="field-note hidden">Po zmianie celu można porównać tę samą planszę, ale do właściwej gry zalecane jest wygenerowanie nowej.</span>
           </label>
           <label>Poziom trudności
             <select id="difficultySelect">
               <option value="easy">Łatwy</option>
               <option value="normal" selected>Normalny</option>
-              <option value="hard">Trudny</option>
               <option value="custom">Własny</option>
             </select>
           </label>
@@ -459,6 +457,7 @@
     <aside class="side-card">
       <h2>Stan gry</h2>
       <div id="message" class="message">Kliknij element planszy, aby go usunąć.</div>
+      <p id="goalNotice" class="field-note hidden">Po zmianie celu można porównać tę samą planszę, ale do właściwej gry zalecane jest wygenerowanie nowej.</p>
       <dl>
         <dt>Parametry losowania</dt><dd id="paramsInfo">-</dd>
         <dt>Wierzchołki pełnego grafu</dt><dd id="fullN">-</dd>
@@ -492,14 +491,12 @@
 
       const binomialDifficulties = {
         easy: { n: 25, p: 3 / 24 },
-        normal: { n: 50, p: 3 / 49 },
-        hard: { n: 75, p: 3 / 74 }
+        normal: { n: 50, p: 3 / 49 }
       };
 
       const intersectionDifficulties = {
         easy: makeIntersectionDefaults(25, 10),
-        normal: makeIntersectionDefaults(50, 20),
-        hard: makeIntersectionDefaults(75, 30)
+        normal: makeIntersectionDefaults(50, 20)
       };
 
       const el = id => document.getElementById(id);
@@ -641,10 +638,10 @@
           : '<p><strong>Warunek celu:</strong> po usunięciach mają powstać co najmniej dwie składowe, a każda z nich musi mieć rozmiar co najmniej 1/3 początkowej składowej w grze. Wynikiem gry jest jak najmniejsza liczba usuniętych elementów potrzebna do spełnienia tego warunku.</p>';
         if (mode === 'binomial') {
           leadText.innerHTML = 'Tryb dwumianowy losuje graf <strong>G(n,p)</strong> i pokazuje największą składową spójności jako główną planszę. Celem jest usunięcie jak najmniejszej liczby wierzchołków według wybranego wariantu celu gry.';
-          rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj wierzchołki, aby usuwać je z planszy. Kliknięcie usuniętego wierzchołka przywraca go.</p>' + goalText + '<p>Poziom normalny odpowiada wersji startowej: <code>n=50</code> oraz średni stopień około <code>3</code>. Poziomy łatwy i trudny używają odpowiednio <code>n=25</code> i <code>n=75</code>, aby typowa liczba wymaganych usunięć była wyraźnie mniejsza albo większa niż na poziomie normalnym.</p><p>Liście są uwzględniane w grze, o ile dokładny solver daje radę policzyć planszę. Gdy solver przekracza limit rozmiaru albo czasu, liście są wyłączane z ruchów, bo nie pomagają w zrównoważonym rozspójnieniu: odcięcie liścia tworzyłoby zbyt małą składową, a usuwanie go tylko zużywa ruch. Takie liście pozostają widoczne jako blade wierzchołki z bladymi połączeniami.</p>';
+          rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj wierzchołki, aby usuwać je z planszy. Kliknięcie usuniętego wierzchołka przywraca go.</p>' + goalText + '<p>Poziom normalny odpowiada wersji startowej: <code>n=50</code> oraz średni stopień około <code>3</code>. Poziom łatwy używa <code>n=25</code>, aby typowa liczba wymaganych usunięć była wyraźnie mniejsza niż na poziomie normalnym. W trybie własnym można ustawić większe parametry, ale przy rozmiarach rzędu <code>n=75</code> graf bywa na tyle gęsty, że trudno go rozspójnić i plansza może liczyć się długo.</p><p>Liście są uwzględniane w grze, o ile dokładny solver daje radę policzyć planszę. Gdy solver przekracza limit rozmiaru albo czasu, liście są wyłączane z ruchów, bo nie pomagają w zrównoważonym rozspójnieniu: odcięcie liścia tworzyłoby zbyt małą składową, a usuwanie go tylko zużywa ruch. Takie liście pozostają widoczne jako blade wierzchołki z bladymi połączeniami.</p>';
         } else {
           leadText.innerHTML = 'Tryb grafu przecięć losuje wierzchołki i osobne cechy. Wierzchołki są połączone, gdy mają wspólną aktywną cechę. Celem jest usunięcie jak najmniejszej liczby cech według wybranego wariantu celu gry.';
-          rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj prostokątne cechy w dolnym rzędzie. Usunięcie cechy kasuje wszystkie połączenia, które ona tworzy.</p>' + goalText + '<p>Przycisk <strong>Układ w kliki</strong> grupuje wierzchołki według pierwszej cechy, która je zawiera, bez losowania nowej planszy.</p><p>Poziom normalny używa <code>n=50</code>, <code>m=20</code> oraz <code>p</code> dobranego z równania <code>nmp^2=3</code>. Poziomy łatwy i trudny używają odpowiednio <code>n=25, m=10</code> oraz <code>n=75, m=30</code>.</p>';
+          rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj prostokątne cechy w dolnym rzędzie. Usunięcie cechy kasuje wszystkie połączenia, które ona tworzy.</p>' + goalText + '<p>Przycisk <strong>Układ w kliki</strong> grupuje wierzchołki według pierwszej cechy, która je zawiera, bez losowania nowej planszy.</p><p>Poziom normalny używa <code>n=50</code>, <code>m=20</code> oraz <code>p</code> dobranego z równania <code>nmp^2=3</code>. Poziom łatwy używa <code>n=25, m=10</code>. W trybie własnym można ustawić większe plansze, ale przy parametrach rzędu <code>n=75, m=30</code> graf przecięć jest zwykle dość gęsty, trudniejszy do rozspójnienia i wolniejszy do policzenia.</p>';
         }
       }
 

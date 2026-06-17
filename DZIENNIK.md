@@ -49,4 +49,4 @@
 - Zmiana celu gry przelicza optimum na tej samej planszy zamiast losować nowy graf.
 - Dodano uwagę przy wyborze celu, że do gry zalecane jest wygenerowanie nowej planszy, oraz przeskalowano poziomy trudności do `n=25/50/75`.
 - Utworzono backup bieżącej wersji strony w `backups/index-2026-06-17-19b29d8.html`.
-- Przeniesiono uwagę o zalecanym generowaniu nowej planszy przy zmianie celu do pobocznego panelu `Stan gry`.
+- Przeniesiono uwagę o zalecanym generowaniu nowej planszy pod pole `Cel gry`; pojawia się dopiero po zmianie celu.

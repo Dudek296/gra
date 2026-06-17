@@ -408,6 +408,7 @@
               <option value="balanced">Dwie duże składowe</option>
               <option value="half">Największa &lt; 1/2, minimum usunięć</option>
             </select>
+            <span id="goalNotice" class="field-note hidden">Po zmianie celu można porównać tę samą planszę, ale do właściwej gry zalecane jest wygenerowanie nowej.</span>
           </label>
           <label>Poziom trudności
             <select id="difficultySelect">
@@ -471,7 +472,6 @@
         <dt>Śr. stopień grafu w grze</dt><dd id="componentAvg">-</dd>
         <dt>Odrzucone losowania</dt><dd id="attempts">-</dd>
       </dl>
-      <p class="field-note">Po zmianie celu można porównać tę samą planszę, ale do właściwej gry zalecane jest wygenerowanie nowej.</p>
       <div class="rules" id="rulesText"></div>
     </aside>
   </main>
@@ -510,6 +510,7 @@
       const messageEl = el('message');
       const modeSelect = el('modeSelect');
       const goalSelect = el('goalSelect');
+      const goalNotice = el('goalNotice');
       const difficultySelect = el('difficultySelect');
       const nInput = el('nInput');
       const mInput = el('mInput');
@@ -620,6 +621,7 @@
           pInput.disabled = false;
         }
         removedLabelEl.textContent = isIntersectionMode(mode) ? 'Usunięte cechy' : 'Usunięte';
+        goalNotice.classList.add('hidden');
         updateLayoutToggle();
         updateStaticText();
       }
@@ -1749,8 +1751,10 @@
 
       function changeGoal() {
         syncControls();
+        goalNotice.classList.remove('hidden');
         if (!state) {
           newGame();
+          goalNotice.classList.remove('hidden');
           return;
         }
         const goal = goalSelect.value;

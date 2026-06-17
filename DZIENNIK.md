@@ -52,3 +52,4 @@
 - Usunięto poziom trudności `Trudny`, zostawiając większe parametry jako możliwość w trybie `Własny`.
 - Przeniesiono uwagę o zalecanym generowaniu nowej planszy pod dynamiczny komunikat w panelu `Stan gry`; pojawia się dopiero po zmianie celu.
 - Przeniesiono ostrzeżenie o dużych parametrach do widocznej uwagi pod wyborem poziomu `Własny`.
+- Dodano zwijaną podpowiedź po opisie warunku celu, dotyczącą zaczynania od wierzchołków wysokiego stopnia i hubów w sieciach.

@@ -364,6 +364,21 @@
     }
 
     .rules p { margin: 0 0 10px; }
+    .rules details {
+      margin: 0 0 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+
+    .rules summary {
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .rules details p { margin: 8px 0 0; }
     code { background: #edf1f7; padding: 1px 5px; border-radius: 6px; }
     .hidden { display: none !important; }
 
@@ -642,12 +657,15 @@
         const goalText = isHalfGoal(goalSelect.value)
           ? '<p><strong>Warunek celu:</strong> największa pozostała składowa ma mieć rozmiar mniejszy niż połowa początkowej składowej w grze. Małe izolowane składowe są dozwolone, ale wynikiem gry jest jak najmniejsza liczba usuniętych elementów potrzebna do spełnienia tego warunku.</p>'
           : '<p><strong>Warunek celu:</strong> po usunięciach mają powstać co najmniej dwie składowe, a każda z nich musi mieć rozmiar co najmniej 1/3 początkowej składowej w grze. Wynikiem gry jest jak najmniejsza liczba usuniętych elementów potrzebna do spełnienia tego warunku.</p>';
+        const hintsText = isIntersectionMode(mode)
+          ? '<details><summary>Podpowiedź 1</summary><p>Zacznij od wierzchołków o wysokim stopniu: w grafie przecięć szukaj cech, które tworzą ich liczne połączenia. W prawdziwych modelach takie wierzchołki pełnią rolę hubów, czyli punktów łączących duże części sieci.</p></details>'
+          : '<details><summary>Podpowiedź 1</summary><p>Zacznij od wierzchołków o wysokim stopniu. W prawdziwych modelach często są to huby, czyli punkty łączące duże części sieci; ich usunięcie może szybko rozbić graf na mniejsze fragmenty.</p></details>';
         if (mode === 'binomial') {
           leadText.innerHTML = 'Tryb dwumianowy losuje graf <strong>G(n,p)</strong> i pokazuje największą składową spójności jako główną planszę. Celem jest usunięcie jak najmniejszej liczby wierzchołków według wybranego wariantu celu gry.';
-          rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj wierzchołki, aby usuwać je z planszy. Kliknięcie usuniętego wierzchołka przywraca go.</p>' + goalText + '<p>Poziom normalny odpowiada wersji startowej: <code>n=50</code> oraz średni stopień około <code>3</code>. Poziom łatwy używa <code>n=25</code>, aby typowa liczba wymaganych usunięć była wyraźnie mniejsza niż na poziomie normalnym.</p><p>Liście są uwzględniane w grze, o ile dokładny solver daje radę policzyć planszę. Gdy solver przekracza limit rozmiaru albo czasu, liście są wyłączane z ruchów, bo nie pomagają w zrównoważonym rozspójnieniu: odcięcie liścia tworzyłoby zbyt małą składową, a usuwanie go tylko zużywa ruch. Takie liście pozostają widoczne jako blade wierzchołki z bladymi połączeniami.</p>';
+          rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj wierzchołki, aby usuwać je z planszy. Kliknięcie usuniętego wierzchołka przywraca go.</p>' + goalText + hintsText + '<p>Poziom normalny odpowiada wersji startowej: <code>n=50</code> oraz średni stopień około <code>3</code>. Poziom łatwy używa <code>n=25</code>, aby typowa liczba wymaganych usunięć była wyraźnie mniejsza niż na poziomie normalnym.</p><p>Liście są uwzględniane w grze, o ile dokładny solver daje radę policzyć planszę. Gdy solver przekracza limit rozmiaru albo czasu, liście są wyłączane z ruchów, bo nie pomagają w zrównoważonym rozspójnieniu: odcięcie liścia tworzyłoby zbyt małą składową, a usuwanie go tylko zużywa ruch. Takie liście pozostają widoczne jako blade wierzchołki z bladymi połączeniami.</p>';
         } else {
           leadText.innerHTML = 'Tryb grafu przecięć losuje wierzchołki i osobne cechy. Wierzchołki są połączone, gdy mają wspólną aktywną cechę. Celem jest usunięcie jak najmniejszej liczby cech według wybranego wariantu celu gry.';
-          rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj prostokątne cechy w dolnym rzędzie. Usunięcie cechy kasuje wszystkie połączenia, które ona tworzy.</p>' + goalText + '<p>Przycisk <strong>Układ w kliki</strong> grupuje wierzchołki według pierwszej cechy, która je zawiera, bez losowania nowej planszy.</p><p>Poziom normalny używa <code>n=50</code>, <code>m=20</code> oraz <code>p</code> dobranego z równania <code>nmp^2=3</code>. Poziom łatwy używa <code>n=25, m=10</code>.</p>';
+          rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj prostokątne cechy w dolnym rzędzie. Usunięcie cechy kasuje wszystkie połączenia, które ona tworzy.</p>' + goalText + hintsText + '<p>Przycisk <strong>Układ w kliki</strong> grupuje wierzchołki według pierwszej cechy, która je zawiera, bez losowania nowej planszy.</p><p>Poziom normalny używa <code>n=50</code>, <code>m=20</code> oraz <code>p</code> dobranego z równania <code>nmp^2=3</code>. Poziom łatwy używa <code>n=25, m=10</code>.</p>';
         }
       }
 

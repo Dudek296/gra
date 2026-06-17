@@ -53,3 +53,4 @@
 - Przeniesiono uwagę o zalecanym generowaniu nowej planszy pod dynamiczny komunikat w panelu `Stan gry`; pojawia się dopiero po zmianie celu.
 - Przeniesiono ostrzeżenie o dużych parametrach do widocznej uwagi pod wyborem poziomu `Własny`.
 - Dodano zwijaną podpowiedź po opisie warunku celu, dotyczącą zaczynania od wierzchołków wysokiego stopnia i hubów w sieciach.
+- Uproszczono panel `Stan gry`: widoczne zostały próg celu i rozmiar największej składowej, a pozostałe statystyki trafiły pod przycisk `dla ciekawskich`.

@@ -355,6 +355,35 @@
     dt { color: var(--muted); }
     dd { margin: 0; font-weight: 900; text-align: right; }
 
+    .curious-stats {
+      margin: -4px 0 16px;
+    }
+
+    .curious-stats summary {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 7px 11px;
+      border: 1px solid #c9d2e3;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 800;
+      list-style: none;
+    }
+
+    .curious-stats summary::-webkit-details-marker { display: none; }
+    .curious-stats summary::before {
+      content: "+";
+      margin-right: 7px;
+      color: var(--accent);
+      font-weight: 900;
+    }
+
+    .curious-stats[open] summary::before { content: "-"; }
+    .curious-stats dl { margin: 10px 0 0; }
+
     .rules {
       color: var(--muted);
       line-height: 1.55;
@@ -475,18 +504,23 @@
       <div id="message" class="message">Kliknij element planszy, aby go usunąć.</div>
       <p id="goalNotice" class="field-note hidden">Po zmianie celu można porównać tę samą planszę, ale do właściwej gry zalecane jest wygenerowanie nowej.</p>
       <dl>
+        <dt>Próg celu</dt><dd id="targetSizeSide">-</dd>
+        <dt>Wierzchołki w największej składowej</dt><dd id="lccSize">-</dd>
+      </dl>
+      <details class="curious-stats">
+        <summary>dla ciekawskich</summary>
+        <dl>
         <dt>Parametry losowania</dt><dd id="paramsInfo">-</dd>
         <dt>Wierzchołki pełnego grafu</dt><dd id="fullN">-</dd>
         <dt>Cechy pełnego grafu</dt><dd id="fullM">-</dd>
-        <dt>Wierzchołki w największej składowej</dt><dd id="lccSize">-</dd>
         <dt>Poza największą składową</dt><dd id="outsideLccSize">-</dd>
         <dt>Liście poza grą</dt><dd id="prunedLeaves">-</dd>
         <dt>Wierzchołki w grze</dt><dd id="componentSize">-</dd>
-        <dt>Próg celu</dt><dd id="targetSizeSide">-</dd>
         <dt>Krawędzie w grze</dt><dd id="componentEdges">-</dd>
         <dt>Śr. stopień grafu w grze</dt><dd id="componentAvg">-</dd>
         <dt>Odrzucone losowania</dt><dd id="attempts">-</dd>
-      </dl>
+        </dl>
+      </details>
       <div class="rules" id="rulesText"></div>
     </aside>
   </main>

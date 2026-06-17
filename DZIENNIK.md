@@ -54,3 +54,6 @@
 - Przeniesiono ostrzeżenie o dużych parametrach do widocznej uwagi pod wyborem poziomu `Własny`.
 - Dodano zwijaną podpowiedź po opisie warunku celu, dotyczącą zaczynania od wierzchołków wysokiego stopnia i hubów w sieciach.
 - Uproszczono panel `Stan gry`: widoczne zostały próg celu i rozmiar największej składowej, a pozostałe statystyki trafiły pod przycisk `dla ciekawskich`.
+- Utworzono backup wersji `43f03ba` w `backups/index-2026-06-17-43f03ba.html`.
+- Rozbudowano podpowiedzi: dwie pierwsze opisują graf dwumianowy, druga doprecyzowuje szukanie optimum, a trzecia opisuje graf przecięć i cięcie połączeń między klikami.
+- Usunięto spod podpowiedzi akapity o poziomach trudności, zostawiając opis liści w trybie dwumianowym.

@@ -434,7 +434,7 @@
 <body>
   <header>
     <h1>Rozspójnianie grafu losowego</h1>
-    <p class="lead">Graf dwumianowy losuje graf i pozwala usuwać wierzchołki. Graf przecięć losuje wierzchołki oraz osobne cechy, a ruch polega na usuwaniu cech tworzących połączenia.</p>
+    <p class="lead">Graf dwumianowy losuje graf i pozwala usuwać wierzchołki. Graf przecięć losuje wierzchołki oraz osobne cechy, a ruch polega na usuwaniu cech tworzących połączenia. W obu trybach aktywna plansza obejmuje tylko największą składową spójności, a pozostałe wierzchołki są widoczne jako szare, nieaktywne punkty.</p>
   </header>
 
   <main>
@@ -1569,15 +1569,39 @@
         return { positions, cols, rows, startY };
       }
 
+      function featureOrderBySize(features, count) {
+        return Array.from({ length: count }, (_, f) => f)
+          .sort((a, b) => ((features[b] || []).length - (features[a] || []).length) || a - b);
+      }
+
+      function rightToLeftSlots(order, count, cols) {
+        const slots = Array(count);
+        const safeCols = Math.max(1, cols || 1);
+        for (let rank = 0; rank < order.length; rank++) {
+          const row = Math.floor(rank / safeCols);
+          const rowStart = row * safeCols;
+          const rowCount = Math.min(safeCols, count - rowStart);
+          const col = rowCount - 1 - (rank - rowStart);
+          slots[order[rank]] = rowStart + col;
+        }
+        return slots;
+      }
+
       function layoutIntersectionCliqueGraph(n, features, featureCount, featureLayout = layoutFeaturePositions(featureCount), hasInactiveVertices = false) {
         const count = Math.max(featureCount, features.length);
         const resolvedFeatureLayout = featureLayout.positions.length === count ? featureLayout : layoutFeaturePositions(count);
-        const featurePositions = resolvedFeatureLayout.positions;
+        const featureOrder = featureOrderBySize(features, count);
+        const featureSlotByFeature = rightToLeftSlots(featureOrder, count, resolvedFeatureLayout.cols);
+        const featurePositions = resolvedFeatureLayout.positions.map(pos => pos);
+        for (let f = 0; f < count; f++) {
+          featurePositions[f] = resolvedFeatureLayout.positions[featureSlotByFeature[f]] || resolvedFeatureLayout.positions[f];
+        }
         const startY = resolvedFeatureLayout.startY || H - 78;
         const clusterCols = Math.min(Math.max(count, 1), 8);
         const clusterRows = Math.max(1, Math.ceil(Math.max(count, 1) / clusterCols));
         const clusterGap = Math.min(106, (W - 128) / Math.max(1, clusterCols - 1));
         const clusterStartX = clusterCols === 1 ? W / 2 : (W - clusterGap * (clusterCols - 1)) / 2;
+        const clusterSlotByFeature = rightToLeftSlots(featureOrder, count, clusterCols);
 
         const memberships = Array.from({ length: n }, () => []);
         for (let f = 0; f < features.length; f++) {
@@ -1600,7 +1624,7 @@
         const clusterBottom = Math.max(clusterTop + 96, startY - 84);
 
         for (const [feature, vertices] of groups) {
-          const slot = Math.max(0, feature);
+          const slot = clusterSlotByFeature[feature] ?? Math.max(0, feature);
           const col = slot % clusterCols;
           const row = Math.floor(slot / clusterCols);
           const yRatio = clusterRows <= 1 ? 0.5 : (row + 0.5) / clusterRows;

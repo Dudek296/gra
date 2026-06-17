@@ -1,0 +1,2170 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gra: rozspójnianie grafu losowego</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --ink: #142033;
+      --muted: #667085;
+      --line: #d8deea;
+      --accent: #2563eb;
+      --feature: #9a3412;
+      --good: #118447;
+      --warn: #a15c07;
+      --bad: #b42318;
+      --shadow: 0 12px 30px rgba(20, 32, 51, 0.10);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #eaf1ff 0, #f6f7fb 34rem);
+      color: var(--ink);
+    }
+
+    header {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 24px 18px 8px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.65rem, 3vw, 2.45rem);
+      letter-spacing: 0;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      max-width: 1040px;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 16px;
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 16px 18px 28px;
+    }
+
+    .board, .side-card {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(216, 222, 234, 0.95);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .toolbar {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+
+    .actions, .status-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .actions { justify-content: space-between; }
+
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    select, input {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid #c9d2e3;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+      padding: 8px 10px;
+    }
+
+    .check-field {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 40px;
+      border: 1px solid #c9d2e3;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 10px;
+    }
+
+    .check-field input {
+      width: 18px;
+      height: 18px;
+      min-height: 0;
+      padding: 0;
+      accent-color: var(--accent);
+    }
+
+    .field-note {
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid #c9d2e3;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 800;
+      border-radius: 8px;
+      min-height: 40px;
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: transform 0.08s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover { border-color: var(--accent); }
+    button:active { transform: translateY(1px); }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button:disabled { opacity: 0.52; cursor: not-allowed; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      gap: 6px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 0.94rem;
+    }
+
+    .pill strong { color: var(--ink); }
+
+    .svg-wrap {
+      padding: 10px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    svg {
+      width: 100%;
+      min-height: 620px;
+      display: block;
+      border-radius: 8px;
+      background:
+        linear-gradient(rgba(22, 32, 51, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(22, 32, 51, 0.045) 1px, transparent 1px),
+        #fbfcff;
+      background-size: 28px 28px;
+      touch-action: manipulation;
+    }
+
+    .edge {
+      stroke: #8fa1bf;
+      stroke-width: 2.1;
+      stroke-linecap: round;
+      opacity: 0.72;
+    }
+
+    .edge.removed {
+      stroke: #cfd6e3;
+      stroke-dasharray: 5 7;
+      opacity: 0.18;
+    }
+
+    .edge.clique-projection {
+      stroke: #7f8a9c;
+      stroke-width: 1;
+      opacity: 0.16;
+    }
+
+    .inactive-edge {
+      stroke: #b8c1d0;
+      stroke-width: 1.25;
+      stroke-linecap: round;
+      opacity: 0.46;
+    }
+
+    .pruned-edge {
+      stroke: #b7c0cf;
+      stroke-width: 1.15;
+      stroke-linecap: round;
+      stroke-dasharray: 3 5;
+      opacity: 0.48;
+    }
+
+    .pruned-edge.bridge {
+      stroke: #8d99ac;
+      stroke-width: 1.55;
+      opacity: 0.74;
+    }
+
+    .incidence {
+      stroke: #d8a273;
+      stroke-width: 1.5;
+      opacity: 0.42;
+    }
+
+    .incidence.clique {
+      stroke: #a65f2f;
+      stroke-width: 1.9;
+      opacity: 0.62;
+    }
+
+    .incidence.removed {
+      stroke: #d7dce6;
+      stroke-dasharray: 4 6;
+      opacity: 0.16;
+    }
+
+    .node, .feature { cursor: pointer; }
+    .hit-area {
+      fill: rgba(0, 0, 0, 0);
+      stroke: transparent;
+      pointer-events: all;
+    }
+
+    .node.inactive {
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .node circle.main, .feature rect.main {
+      stroke: #fff;
+      stroke-width: 3;
+      filter: drop-shadow(0 5px 8px rgba(15, 23, 42, 0.22));
+    }
+
+    .node.inactive circle.main {
+      fill: #c8d0dd;
+      stroke: #8794a8;
+      stroke-width: 2;
+      filter: none;
+      opacity: 0.9;
+    }
+
+    .node.pruned {
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .node.pruned circle.main {
+      fill: #d4dbe6;
+      stroke: #9faabc;
+      stroke-width: 1.7;
+      filter: none;
+      opacity: 0.82;
+    }
+
+    .feature rect.main { rx: 7; }
+
+    .node text, .feature text {
+      pointer-events: none;
+      fill: #fff;
+      font-weight: 900;
+      font-size: 12px;
+      text-anchor: middle;
+      dominant-baseline: central;
+      paint-order: stroke;
+      stroke: rgba(0, 0, 0, 0.22);
+      stroke-width: 2px;
+      stroke-linejoin: round;
+    }
+
+    .node.removed circle.main, .feature.removed rect.main {
+      fill: #e2e7f0 !important;
+      stroke: #aab4c4;
+      filter: none;
+      opacity: 0.72;
+    }
+
+    .node.removed text, .feature.removed text {
+      fill: #556070;
+      stroke: rgba(255, 255, 255, 0.9);
+    }
+
+    .node:hover circle.main, .feature:hover rect.main { stroke: #111827; }
+    .optimal-ring { fill: none; stroke: #111827; stroke-width: 3.1; stroke-dasharray: 5 4; }
+    .hint-line { stroke: #b42318; stroke-width: 3.2; stroke-linecap: round; }
+
+    .side-card {
+      padding: 16px;
+      align-self: start;
+      position: sticky;
+      top: 12px;
+    }
+
+    .side-card h2 {
+      margin: 0 0 12px;
+      font-size: 1.12rem;
+      letter-spacing: 0;
+    }
+
+    .message {
+      padding: 13px;
+      border-radius: 8px;
+      background: #f2f6ff;
+      border: 1px solid #dbe6ff;
+      line-height: 1.45;
+      font-weight: 800;
+      margin-bottom: 14px;
+    }
+
+    .message.good { background: #eaf8f0; border-color: #bfe8d0; color: var(--good); }
+    .message.warn { background: #fff5e8; border-color: #ffd9a8; color: var(--warn); }
+    .message.bad { background: #fff0ee; border-color: #ffd0cb; color: var(--bad); }
+
+    dl {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px 14px;
+      margin: 0 0 16px;
+      padding: 0;
+    }
+
+    dt { color: var(--muted); }
+    dd { margin: 0; font-weight: 900; text-align: right; }
+
+    .rules {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.95rem;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+
+    .rules p { margin: 0 0 10px; }
+    code { background: #edf1f7; padding: 1px 5px; border-radius: 6px; }
+    .hidden { display: none !important; }
+
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+      .side-card { position: static; }
+      .control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      svg { min-height: 540px; }
+    }
+
+    @media (max-width: 560px) {
+      header, main { padding-left: 10px; padding-right: 10px; }
+      .control-grid { grid-template-columns: 1fr; }
+      .actions > .buttons { display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 8px; }
+      .actions button { width: 100%; }
+      svg {
+        width: 760px;
+        max-width: none;
+        min-height: 540px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Gra w rozspójnianie grafu losowego</h1>
+    <p class="lead" id="leadText"></p>
+  </header>
+
+  <main>
+    <section class="board" aria-label="Plansza gry">
+      <div class="toolbar">
+        <div class="control-grid">
+          <label>Model grafu
+            <select id="modeSelect">
+              <option value="binomial">Graf dwumianowy G(n,p)</option>
+              <option value="intersection">Graf przecięć</option>
+            </select>
+          </label>
+          <label>Cel gry
+            <select id="goalSelect">
+              <option value="balanced">Dwie duże składowe</option>
+              <option value="half">Największa &lt; 1/2, minimum usunięć</option>
+            </select>
+            <span class="field-note">Po zmianie celu można porównać tę samą planszę, ale zalecane jest wygenerowanie nowej.</span>
+          </label>
+          <label>Poziom trudności
+            <select id="difficultySelect">
+              <option value="easy">Łatwy</option>
+              <option value="normal" selected>Normalny</option>
+              <option value="hard">Trudny</option>
+              <option value="custom">Własny</option>
+            </select>
+          </label>
+          <label>Liczba wierzchołków n
+            <input id="nInput" type="number" min="8" max="90" step="1" value="50" />
+          </label>
+          <label id="mField">Liczba cech m
+            <input id="mInput" type="number" min="4" max="32" step="1" value="20" />
+          </label>
+          <label>Prawdopodobieństwo p
+            <input id="pInput" type="number" min="0.001" max="0.95" step="0.001" value="0.061" />
+          </label>
+          <label class="check-field">
+            <input id="degreeLabels" type="checkbox" />
+            <span>Pokazuj stopnie</span>
+          </label>
+        </div>
+        <div class="actions">
+          <div class="buttons">
+            <button id="newGraph" class="primary" type="button">Nowa plansza</button>
+            <button id="reset" type="button">Resetuj ruchy</button>
+            <button id="undo" type="button">Cofnij</button>
+            <button id="reveal" type="button">Pokaż przykład optimum</button>
+            <button id="layoutToggle" type="button">Układ w kliki</button>
+          </div>
+          <div class="status-line" aria-live="polite">
+            <span class="pill"><span id="removedLabel">Usunięte</span>: <strong id="removedCount">0</strong></span>
+            <span class="pill"><span id="minimumLabel">Minimum</span>: <strong id="minimumCut">?</strong></span>
+            <span class="pill">Próg: <strong id="targetSize">?</strong></span>
+            <span class="pill">Składowe: <strong id="componentCount">1</strong></span>
+          </div>
+        </div>
+      </div>
+      <div class="svg-wrap">
+        <svg id="graph" viewBox="0 0 900 620" role="img" aria-label="Plansza grafu losowego">
+          <g id="edgeLayer"></g>
+          <g id="nodeLayer"></g>
+        </svg>
+      </div>
+    </section>
+
+    <aside class="side-card">
+      <h2>Stan gry</h2>
+      <div id="message" class="message">Kliknij element planszy, aby go usunąć.</div>
+      <dl>
+        <dt>Parametry losowania</dt><dd id="paramsInfo">-</dd>
+        <dt>Wierzchołki pełnego grafu</dt><dd id="fullN">-</dd>
+        <dt>Cechy pełnego grafu</dt><dd id="fullM">-</dd>
+        <dt>Wierzchołki w największej składowej</dt><dd id="lccSize">-</dd>
+        <dt>Poza największą składową</dt><dd id="outsideLccSize">-</dd>
+        <dt>Liście poza grą</dt><dd id="prunedLeaves">-</dd>
+        <dt>Wierzchołki w grze</dt><dd id="componentSize">-</dd>
+        <dt>Próg celu</dt><dd id="targetSizeSide">-</dd>
+        <dt>Krawędzie w grze</dt><dd id="componentEdges">-</dd>
+        <dt>Śr. stopień grafu w grze</dt><dd id="componentAvg">-</dd>
+        <dt>Odrzucone losowania</dt><dd id="attempts">-</dd>
+      </dl>
+      <div class="rules" id="rulesText"></div>
+    </aside>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const W = 900;
+      const H = 620;
+      const MAX_ATTEMPTS = 1200;
+      const MAX_EXACT_VERTICES = 30;
+      const MAX_HALF_EXACT_VERTICES = MAX_EXACT_VERTICES;
+      const VERTEX_SEARCH_TIME_MS = 1800;
+      const HALF_VERTEX_SEARCH_TIME_MS = 2500;
+      const FEATURE_SEARCH_TIME_MS = 1700;
+      const palette = ['#2563eb', '#d64550', '#118447', '#7c3aed', '#b45309', '#0f8995', '#be185d', '#52677a'];
+
+      const binomialDifficulties = {
+        easy: { n: 25, p: 3 / 24 },
+        normal: { n: 50, p: 3 / 49 },
+        hard: { n: 75, p: 3 / 74 }
+      };
+
+      const intersectionDifficulties = {
+        easy: makeIntersectionDefaults(25, 10),
+        normal: makeIntersectionDefaults(50, 20),
+        hard: makeIntersectionDefaults(75, 30)
+      };
+
+      const el = id => document.getElementById(id);
+      const edgeLayer = el('edgeLayer');
+      const nodeLayer = el('nodeLayer');
+      const leadText = el('leadText');
+      const rulesText = el('rulesText');
+      const messageEl = el('message');
+      const modeSelect = el('modeSelect');
+      const goalSelect = el('goalSelect');
+      const difficultySelect = el('difficultySelect');
+      const nInput = el('nInput');
+      const mInput = el('mInput');
+      const pInput = el('pInput');
+      const mField = el('mField');
+      const degreeLabelsToggle = el('degreeLabels');
+      const newGraphBtn = el('newGraph');
+      const resetBtn = el('reset');
+      const undoBtn = el('undo');
+      const revealBtn = el('reveal');
+      const layoutToggleBtn = el('layoutToggle');
+
+      const removedCountEl = el('removedCount');
+      const removedLabelEl = el('removedLabel');
+      const minimumLabelEl = el('minimumLabel');
+      const minimumCutEl = el('minimumCut');
+      const targetSizeEl = el('targetSize');
+      const componentCountEl = el('componentCount');
+      const paramsInfoEl = el('paramsInfo');
+      const fullNEl = el('fullN');
+      const fullMEl = el('fullM');
+      const lccSizeEl = el('lccSize');
+      const outsideLccSizeEl = el('outsideLccSize');
+      const prunedLeavesEl = el('prunedLeaves');
+      const componentSizeEl = el('componentSize');
+      const targetSizeSideEl = el('targetSizeSide');
+      const componentEdgesEl = el('componentEdges');
+      const componentAvgEl = el('componentAvg');
+      const attemptsEl = el('attempts');
+
+      let state = null;
+
+      function makeIntersectionDefaults(n, m) {
+        return { n, m, p: Math.sqrt(3 / (n * m)) };
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function readInt(input, fallback, min, max) {
+        return clamp(Number.parseInt(input.value, 10) || fallback, min, max);
+      }
+
+      function readFloat(input, fallback, min, max) {
+        return clamp(Number.parseFloat(input.value) || fallback, min, max);
+      }
+
+      function formatNumber(x, digits = 3) {
+        return Number.isFinite(x) ? x.toFixed(digits).replace('.', ',') : '-';
+      }
+
+      function isHalfGoal(goal) {
+        return goal === 'half';
+      }
+
+      function goalThresholdLabel(cut, n) {
+        if (isHalfGoal(cut.goal)) return `≤ ${cut.maxComponentSize ?? Math.floor((n - 1) / 2)}`;
+        return `≥ ${cut.minComponentSize ?? Math.ceil(n / 3)}`;
+      }
+
+      function cutSizeLabel(cut) {
+        if (!Number.isFinite(cut.k)) return 'brak';
+        return cut.exact === false ? `≤ ${cut.k}` : String(cut.k);
+      }
+
+      function isIntersectionMode(mode) {
+        return mode === 'intersection';
+      }
+
+      function isCliqueLayoutState() {
+        return Boolean(state && isIntersectionMode(state.mode) && state.layoutStyle === 'clique');
+      }
+
+      function currentConfig() {
+        const mode = modeSelect.value;
+        const goal = goalSelect.value;
+        const difficulty = difficultySelect.value;
+        if (difficulty !== 'custom') {
+          const defaults = mode === 'binomial' ? binomialDifficulties[difficulty] : intersectionDifficulties[difficulty];
+          return { mode, goal, difficulty, n: defaults.n, m: defaults.m || 0, p: defaults.p };
+        }
+        return {
+          mode,
+          goal,
+          difficulty,
+          n: readInt(nInput, 50, 8, 90),
+          m: isIntersectionMode(mode) ? readInt(mInput, 20, 4, 32) : 0,
+          p: readFloat(pInput, mode === 'binomial' ? 3 / 49 : Math.sqrt(3 / (50 * 20)), 0.001, 0.95)
+        };
+      }
+
+      function syncControls() {
+        const mode = modeSelect.value;
+        const difficulty = difficultySelect.value;
+        mField.classList.toggle('hidden', !isIntersectionMode(mode));
+        if (difficulty !== 'custom') {
+          const defaults = mode === 'binomial' ? binomialDifficulties[difficulty] : intersectionDifficulties[difficulty];
+          nInput.value = defaults.n;
+          mInput.value = defaults.m || 20;
+          pInput.value = defaults.p.toFixed(4);
+          nInput.disabled = true;
+          mInput.disabled = true;
+          pInput.disabled = true;
+        } else {
+          nInput.disabled = false;
+          mInput.disabled = !isIntersectionMode(mode);
+          pInput.disabled = false;
+        }
+        removedLabelEl.textContent = isIntersectionMode(mode) ? 'Usunięte cechy' : 'Usunięte';
+        updateLayoutToggle();
+        updateStaticText();
+      }
+
+      function updateLayoutToggle() {
+        const active = state ? isIntersectionMode(state.mode) : isIntersectionMode(modeSelect.value);
+        const style = state ? state.layoutStyle : 'force';
+        layoutToggleBtn.classList.toggle('hidden', !active);
+        layoutToggleBtn.disabled = !active;
+        layoutToggleBtn.textContent = style === 'clique' ? 'Układ standardowy' : 'Układ w kliki';
+      }
+
+      function updateStaticText() {
+        const mode = modeSelect.value;
+        const goalText = isHalfGoal(goalSelect.value)
+          ? '<p><strong>Warunek celu:</strong> największa pozostała składowa ma mieć rozmiar mniejszy niż połowa początkowej składowej w grze. Małe izolowane składowe są dozwolone, ale wynikiem gry jest jak najmniejsza liczba usuniętych elementów potrzebna do spełnienia tego warunku.</p>'
+          : '<p><strong>Warunek celu:</strong> po usunięciach mają powstać co najmniej dwie składowe, a każda z nich musi mieć rozmiar co najmniej 1/3 początkowej składowej w grze. Wynikiem gry jest jak najmniejsza liczba usuniętych elementów potrzebna do spełnienia tego warunku.</p>';
+        if (mode === 'binomial') {
+          leadText.innerHTML = 'Tryb dwumianowy losuje graf <strong>G(n,p)</strong> i pokazuje największą składową spójności jako główną planszę. Celem jest usunięcie jak najmniejszej liczby wierzchołków według wybranego wariantu celu gry.';
+          rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj wierzchołki, aby usuwać je z planszy. Kliknięcie usuniętego wierzchołka przywraca go.</p>' + goalText + '<p>Poziom normalny odpowiada wersji startowej: <code>n=50</code> oraz średni stopień około <code>3</code>. Poziomy łatwy i trudny używają odpowiednio <code>n=25</code> i <code>n=75</code>, aby typowa liczba wymaganych usunięć była wyraźnie mniejsza albo większa niż na poziomie normalnym.</p><p>Liście są uwzględniane w grze, o ile dokładny solver daje radę policzyć planszę. Gdy solver przekracza limit rozmiaru albo czasu, liście są wyłączane z ruchów, bo nie pomagają w zrównoważonym rozspójnieniu: odcięcie liścia tworzyłoby zbyt małą składową, a usuwanie go tylko zużywa ruch. Takie liście pozostają widoczne jako blade wierzchołki z bladymi połączeniami.</p>';
+        } else {
+          leadText.innerHTML = 'Tryb grafu przecięć losuje wierzchołki i osobne cechy. Wierzchołki są połączone, gdy mają wspólną aktywną cechę. Celem jest usunięcie jak najmniejszej liczby cech według wybranego wariantu celu gry.';
+          rulesText.innerHTML = '<p><strong>Ruch:</strong> klikaj prostokątne cechy w dolnym rzędzie. Usunięcie cechy kasuje wszystkie połączenia, które ona tworzy.</p>' + goalText + '<p>Przycisk <strong>Układ w kliki</strong> grupuje wierzchołki według pierwszej cechy, która je zawiera, bez losowania nowej planszy.</p><p>Poziom normalny używa <code>n=50</code>, <code>m=20</code> oraz <code>p</code> dobranego z równania <code>nmp^2=3</code>. Poziomy łatwy i trudny używają odpowiednio <code>n=25, m=10</code> oraz <code>n=75, m=30</code>.</p>';
+        }
+      }
+
+      function generateBinomialEdges(n, p) {
+        const edges = [];
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            if (Math.random() < p) edges.push([i, j]);
+          }
+        }
+        return edges;
+      }
+
+      function buildAdj(n, edges) {
+        const adj = Array.from({ length: n }, () => []);
+        for (const [u, v] of edges) {
+          adj[u].push(v);
+          adj[v].push(u);
+        }
+        return adj;
+      }
+
+      function largestConnectedComponent(n, edges) {
+        const adj = buildAdj(n, edges);
+        const seen = Array(n).fill(false);
+        let best = [];
+        for (let start = 0; start < n; start++) {
+          if (seen[start]) continue;
+          const comp = [];
+          const stack = [start];
+          seen[start] = true;
+          while (stack.length) {
+            const v = stack.pop();
+            comp.push(v);
+            for (const to of adj[v]) {
+              if (!seen[to]) {
+                seen[to] = true;
+                stack.push(to);
+              }
+            }
+          }
+          if (comp.length > best.length) best = comp;
+        }
+        best.sort((a, b) => a - b);
+        return best;
+      }
+
+      function verticesOutside(n, keptVertices) {
+        const kept = new Set(keptVertices);
+        const outside = [];
+        for (let v = 0; v < n; v++) {
+          if (!kept.has(v)) outside.push(v);
+        }
+        return outside;
+      }
+
+      function inducedGraph(vertices, fullEdges) {
+        const index = new Map(vertices.map((v, i) => [v, i]));
+        const edges = [];
+        for (const [u, v] of fullEdges) {
+          if (index.has(u) && index.has(v)) edges.push([index.get(u), index.get(v)]);
+        }
+        return { n: vertices.length, vertices, edges, adj: buildAdj(vertices.length, edges) };
+      }
+
+      function emptyPrunedVisualization() {
+        return { vertices: [], edges: [] };
+      }
+
+      function prunedVisualization(sourceGraph, playableGraph) {
+        const activeIndex = new Map(playableGraph.vertices.map((v, i) => [v, i]));
+        const prunedVertices = sourceGraph.vertices.filter(v => !activeIndex.has(v));
+        const prunedIndex = new Map(prunedVertices.map((v, i) => [v, i]));
+        const edges = [];
+
+        for (const [u, v] of sourceGraph.edges) {
+          const uLabel = sourceGraph.vertices[u];
+          const vLabel = sourceGraph.vertices[v];
+          const uActive = activeIndex.get(uLabel);
+          const vActive = activeIndex.get(vLabel);
+          if (uActive !== undefined && vActive !== undefined) continue;
+          edges.push({
+            aType: uActive !== undefined ? 'active' : 'pruned',
+            a: uActive !== undefined ? uActive : prunedIndex.get(uLabel),
+            bType: vActive !== undefined ? 'active' : 'pruned',
+            b: vActive !== undefined ? vActive : prunedIndex.get(vLabel)
+          });
+        }
+
+        return { vertices: prunedVertices, edges };
+      }
+
+      function solverNeedsPrunedFallback(cut) {
+        return cut.reason === 'too_large' || cut.reason === 'timeout';
+      }
+
+      function isPlayableCut(graph, cut) {
+        return graph.n >= 6 && Number.isFinite(cut.k) && cut.k > 0;
+      }
+
+      function removeDegreeOneVertices(graph) {
+        const alive = Array(graph.n).fill(true);
+        let removedLeaves = 0;
+        while (true) {
+          const degree = Array(graph.n).fill(0);
+          for (const [u, v] of graph.edges) {
+            if (alive[u] && alive[v]) {
+              degree[u]++;
+              degree[v]++;
+            }
+          }
+          const leaves = [];
+          for (let v = 0; v < graph.n; v++) {
+            if (alive[v] && degree[v] === 1) leaves.push(v);
+          }
+          if (!leaves.length) break;
+          for (const v of leaves) alive[v] = false;
+          removedLeaves += leaves.length;
+        }
+        const kept = [];
+        const oldToNew = new Map();
+        for (let v = 0; v < graph.n; v++) {
+          if (alive[v]) {
+            oldToNew.set(v, kept.length);
+            kept.push(graph.vertices[v]);
+          }
+        }
+        const edges = [];
+        for (const [u, v] of graph.edges) {
+          if (alive[u] && alive[v]) edges.push([oldToNew.get(u), oldToNew.get(v)]);
+        }
+        return { n: kept.length, vertices: kept, edges, adj: buildAdj(kept.length, edges), removedLeaves };
+      }
+
+      function activeComponents(graph, removedVertices) {
+        const seen = Array(graph.n).fill(false);
+        const comps = [];
+        for (let start = 0; start < graph.n; start++) {
+          if (removedVertices.has(start) || seen[start]) continue;
+          const comp = [];
+          const stack = [start];
+          seen[start] = true;
+          while (stack.length) {
+            const v = stack.pop();
+            comp.push(v);
+            for (const to of graph.adj[v]) {
+              if (!removedVertices.has(to) && !seen[to]) {
+                seen[to] = true;
+                stack.push(to);
+              }
+            }
+          }
+          comps.push(comp);
+        }
+        return comps;
+      }
+
+      function popcount(mask) {
+        let x = mask >>> 0;
+        let count = 0;
+        while (x) {
+          x &= x - 1;
+          count++;
+        }
+        return count;
+      }
+
+      function bitIndex(bit) {
+        return 31 - Math.clz32(bit >>> 0);
+      }
+
+      function maskToArray(mask, n) {
+        const out = [];
+        let x = mask >>> 0;
+        while (x) {
+          const bit = x & -x;
+          const idx = bitIndex(bit);
+          if (idx < n) out.push(idx);
+          x -= bit;
+        }
+        return out;
+      }
+
+      function buildAdjMasks(graph) {
+        const masks = Array(graph.n).fill(0);
+        for (const [u, v] of graph.edges) {
+          masks[u] |= (1 << v);
+          masks[v] |= (1 << u);
+        }
+        return masks;
+      }
+
+      function largestComponentInMask(activeMask, adjMasks) {
+        let remaining = activeMask >>> 0;
+        let bestMask = 0;
+        let bestSize = 0;
+        while (remaining) {
+          const startBit = remaining & -remaining;
+          let queue = startBit;
+          let comp = 0;
+          while (queue) {
+            const bit = queue & -queue;
+            queue -= bit;
+            if (comp & bit) continue;
+            comp |= bit;
+            queue |= adjMasks[bitIndex(bit)] & activeMask & (activeMask ^ comp);
+          }
+          remaining &= activeMask ^ comp;
+          const size = popcount(comp);
+          if (size > bestSize) {
+            bestSize = size;
+            bestMask = comp;
+          }
+        }
+        return { mask: bestMask, size: bestSize };
+      }
+
+      function componentMasksInMask(activeMask, adjMasks) {
+        let remaining = activeMask >>> 0;
+        const comps = [];
+        while (remaining) {
+          const startBit = remaining & -remaining;
+          let queue = startBit;
+          let comp = 0;
+          while (queue) {
+            const bit = queue & -queue;
+            queue -= bit;
+            if (comp & bit) continue;
+            comp |= bit;
+            queue |= adjMasks[bitIndex(bit)] & activeMask & (activeMask ^ comp);
+          }
+          remaining &= activeMask ^ comp;
+          comps.push(comp);
+        }
+        return comps.sort((a, b) => popcount(b) - popcount(a));
+      }
+
+      function connectedWitnessMask(componentMask, adjMasks, limit) {
+        let queue = componentMask & -componentMask;
+        let seen = 0;
+        let witness = 0;
+        while (queue && popcount(witness) < limit) {
+          const bit = queue & -queue;
+          queue -= bit;
+          if (seen & bit) continue;
+          seen |= bit;
+          witness |= bit;
+          queue |= adjMasks[bitIndex(bit)] & componentMask & (componentMask ^ seen);
+        }
+        return witness;
+      }
+
+      function orderedBitsByInternalDegree(mask, adjMasks) {
+        const bits = [];
+        let rest = mask >>> 0;
+        while (rest) {
+          const bit = rest & -rest;
+          rest -= bit;
+          bits.push(bit);
+        }
+        return bits.sort((a, b) => popcount(adjMasks[bitIndex(b)] & mask) - popcount(adjMasks[bitIndex(a)] & mask));
+      }
+
+      function candidateFromSide(sideA, boundary, n, fullMask, adjMasks, minComponentSize) {
+        const aSize = popcount(sideA);
+        if (aSize < minComponentSize) return null;
+        const outside = fullMask ^ (sideA | boundary);
+        const bestOutside = largestComponentInMask(outside, adjMasks);
+        if (bestOutside.size < minComponentSize) return null;
+        const k = n - aSize - bestOutside.size;
+        if (k <= 0) return null;
+        return { k, sideA, sideB: bestOutside.mask };
+      }
+
+      function greedyBalancedUpperBound(n, adjMasks, fullMask, minComponentSize) {
+        let best = null;
+        const maxSide = Math.floor(n / 2);
+        for (let root = 0; root < n; root++) {
+          let sideA = 1 << root;
+          let guard = 0;
+          while (popcount(sideA) <= maxSide && guard++ < n) {
+            let boundary = 0;
+            let tmp = sideA;
+            while (tmp) {
+              const bit = tmp & -tmp;
+              tmp -= bit;
+              boundary |= adjMasks[bitIndex(bit)];
+            }
+            boundary &= fullMask ^ sideA;
+            const candidate = candidateFromSide(sideA, boundary, n, fullMask, adjMasks, minComponentSize);
+            if (candidate && (!best || candidate.k < best.k)) best = candidate;
+            let choices = boundary;
+            if (!choices) break;
+            let bestBit = choices & -choices;
+            let bestScore = Infinity;
+            while (choices) {
+              const bit = choices & -choices;
+              choices -= bit;
+              const newSide = sideA | bit;
+              const score = popcount((boundary | adjMasks[bitIndex(bit)]) & (fullMask ^ newSide));
+              if (score < bestScore) {
+                bestScore = score;
+                bestBit = bit;
+              }
+            }
+            sideA |= bestBit;
+          }
+        }
+        return best;
+      }
+
+      function minimumBalancedVertexCut(graph) {
+        const n = graph.n;
+        const minComponentSize = Math.ceil(n / 3);
+        const maxRemovable = n - 2 * minComponentSize;
+        const base = { goal: 'balanced', k: Infinity, separator: [], sideA: [], sideB: [], componentSizes: [], minComponentSize, exact: false, reason: 'none' };
+        if (n < 6 || maxRemovable < 1) return { ...base, reason: 'too_small' };
+        if (n > MAX_EXACT_VERTICES) return { ...base, reason: 'too_large' };
+        const adjMasks = buildAdjMasks(graph);
+        const fullMask = (1 << n) - 1;
+        const maxSide = Math.floor(n / 2);
+        const startedAt = Date.now();
+        let best = greedyBalancedUpperBound(n, adjMasks, fullMask, minComponentSize);
+        let bestK = best ? best.k : maxRemovable + 1;
+        let bestA = best ? best.sideA : 0;
+        let bestB = best ? best.sideB : 0;
+        let calls = 0;
+
+        function consider(candidate) {
+          if (candidate && candidate.k < bestK) {
+            bestK = candidate.k;
+            bestA = candidate.sideA;
+            bestB = candidate.sideB;
+          }
+        }
+
+        function search(root, sideA, boundary, forbidden) {
+          calls++;
+          if (calls % 100000 === 0 && Date.now() - startedAt > VERTEX_SEARCH_TIME_MS) throw new Error('timeout');
+          const lowerMask = root === 0 ? 0 : (1 << root) - 1;
+          if (popcount(boundary & (forbidden | lowerMask)) >= bestK) return;
+          const sideSize = popcount(sideA);
+          if (sideSize >= minComponentSize) {
+            consider(candidateFromSide(sideA, boundary, n, fullMask, adjMasks, minComponentSize));
+            if (bestK === 1) return;
+          }
+          if (sideSize >= maxSide) return;
+          const candidates = boundary & (fullMask ^ (forbidden | lowerMask));
+          if (!candidates) return;
+          const bit = candidates & -candidates;
+          const v = bitIndex(bit);
+          search(root, sideA | bit, (boundary | adjMasks[v]) & (fullMask ^ (sideA | bit)), forbidden);
+          search(root, sideA, boundary, forbidden | bit);
+        }
+
+        try {
+          for (let root = 0; root < n; root++) {
+            search(root, 1 << root, adjMasks[root] & (fullMask ^ (1 << root)), 0);
+            if (bestK === 1) break;
+          }
+        } catch (err) {
+          return best ? cutFromMasks(bestK, bestA, bestB, n, minComponentSize, false, 'timeout') : { ...base, reason: 'timeout' };
+        }
+        return bestK <= maxRemovable ? cutFromMasks(bestK, bestA, bestB, n, minComponentSize, true, 'ok') : base;
+      }
+
+      function cutFromMasks(k, sideA, sideB, n, minComponentSize, exact, reason) {
+        const fullMask = (1 << n) - 1;
+        return {
+          goal: 'balanced',
+          k,
+          separator: maskToArray(fullMask ^ (sideA | sideB), n),
+          sideA: maskToArray(sideA, n),
+          sideB: maskToArray(sideB, n),
+          componentSizes: [popcount(sideA), popcount(sideB)].filter(Boolean).sort((a, b) => b - a),
+          minComponentSize,
+          exact,
+          reason
+        };
+      }
+
+      function greedyHalfVertexUpperBound(n, adjMasks, fullMask, maxComponentSize) {
+        let removed = 0;
+        let guard = 0;
+        while (guard++ < n) {
+          const activeMask = fullMask ^ removed;
+          const largest = largestComponentInMask(activeMask, adjMasks);
+          if (largest.size <= maxComponentSize) return removed;
+          let choices = largest.mask;
+          let bestBit = choices & -choices;
+          let bestScore = -1;
+          while (choices) {
+            const bit = choices & -choices;
+            choices -= bit;
+            const score = popcount(adjMasks[bitIndex(bit)] & largest.mask);
+            if (score > bestScore) {
+              bestScore = score;
+              bestBit = bit;
+            }
+          }
+          removed |= bestBit;
+        }
+        return removed;
+      }
+
+      function cutFromRemovedMask(removedMask, n, adjMasks, maxComponentSize, exact, reason) {
+        const fullMask = (1 << n) - 1;
+        const comps = componentMasksInMask(fullMask ^ removedMask, adjMasks);
+        return {
+          goal: 'half',
+          k: popcount(removedMask),
+          separator: maskToArray(removedMask, n),
+          sideA: maskToArray(comps[0] || 0, n),
+          sideB: maskToArray(comps[1] || 0, n),
+          componentSizes: comps.map(comp => popcount(comp)),
+          maxComponentSize,
+          exact,
+          reason
+        };
+      }
+
+      function minimumHalfVertexCut(graph) {
+        const n = graph.n;
+        const maxComponentSize = Math.floor((n - 1) / 2);
+        const base = { goal: 'half', k: Infinity, separator: [], sideA: [], sideB: [], componentSizes: [], maxComponentSize, exact: false, reason: 'none' };
+        if (n < 2 || maxComponentSize < 1) return { ...base, reason: 'too_small' };
+        if (n > MAX_HALF_EXACT_VERTICES) return greedyHalfVertexCutLarge(graph, maxComponentSize, 'too_large');
+        const adjMasks = buildAdjMasks(graph);
+        const fullMask = (1 << n) - 1;
+        const greedy = greedyHalfVertexUpperBound(n, adjMasks, fullMask, maxComponentSize);
+
+        const startedAt = Date.now();
+        let calls = 0;
+        const upperK = greedy ? popcount(greedy) : n;
+
+        function search(removedMask, depthLeft) {
+          calls++;
+          if (calls % 25000 === 0 && Date.now() - startedAt > HALF_VERTEX_SEARCH_TIME_MS) throw new Error('timeout');
+          const activeMask = fullMask ^ removedMask;
+          const largest = largestComponentInMask(activeMask, adjMasks);
+          if (largest.size <= maxComponentSize) return removedMask;
+          if (depthLeft === 0) return 0;
+          const witness = connectedWitnessMask(largest.mask, adjMasks, maxComponentSize + 1);
+          for (const bit of orderedBitsByInternalDegree(witness, adjMasks)) {
+            const found = search(removedMask | bit, depthLeft - 1);
+            if (found) return found;
+          }
+          return 0;
+        }
+
+        try {
+          for (let k = 1; k < upperK; k++) {
+            const found = search(0, k);
+            if (found) return cutFromRemovedMask(found, n, adjMasks, maxComponentSize, true, 'ok');
+          }
+        } catch (err) {
+          return greedy ? cutFromRemovedMask(greedy, n, adjMasks, maxComponentSize, false, 'timeout') : { ...base, reason: 'timeout' };
+        }
+        return greedy ? cutFromRemovedMask(greedy, n, adjMasks, maxComponentSize, true, 'ok') : base;
+      }
+
+      function minimumVertexCut(graph, goal) {
+        return isHalfGoal(goal) ? minimumHalfVertexCut(graph) : minimumBalancedVertexCut(graph);
+      }
+
+      function greedyHalfVertexCutLarge(graph, maxComponentSize, reason) {
+        const removed = new Set();
+        let guard = 0;
+        while (guard++ < graph.n) {
+          const comps = activeComponents(graph, removed).sort((a, b) => b.length - a.length);
+          const largest = comps[0] || [];
+          if (largest.length <= maxComponentSize) return cutFromRemovedArray(removed, graph, maxComponentSize, false, reason);
+          const inLargest = new Set(largest);
+          let best = largest[0];
+          let bestScore = -1;
+          for (const v of largest) {
+            let score = 0;
+            for (const to of graph.adj[v]) if (inLargest.has(to)) score++;
+            if (score > bestScore) {
+              bestScore = score;
+              best = v;
+            }
+          }
+          removed.add(best);
+        }
+        return cutFromRemovedArray(removed, graph, maxComponentSize, false, reason);
+      }
+
+      function cutFromRemovedArray(removed, graph, maxComponentSize, exact, reason) {
+        const comps = activeComponents(graph, removed).sort((a, b) => b.length - a.length);
+        return {
+          goal: 'half',
+          k: removed.size,
+          separator: Array.from(removed).sort((a, b) => a - b),
+          sideA: comps[0] || [],
+          sideB: comps[1] || [],
+          componentSizes: comps.map(comp => comp.length),
+          maxComponentSize,
+          exact,
+          reason
+        };
+      }
+
+      function generateIncidence(n, m, p) {
+        const features = Array.from({ length: m }, () => []);
+        for (let f = 0; f < m; f++) {
+          for (let v = 0; v < n; v++) {
+            if (Math.random() < p) features[f].push(v);
+          }
+        }
+        return features;
+      }
+
+      function edgesFromFeatures(n, features, removedFeatures = new Set()) {
+        const seen = new Set();
+        for (let f = 0; f < features.length; f++) {
+          if (removedFeatures.has(f)) continue;
+          const verts = features[f];
+          for (let i = 0; i < verts.length; i++) {
+            for (let j = i + 1; j < verts.length; j++) {
+              const a = Math.min(verts[i], verts[j]);
+              const b = Math.max(verts[i], verts[j]);
+              seen.add(a + ':' + b);
+            }
+          }
+        }
+        return Array.from(seen, key => key.split(':').map(Number));
+      }
+
+      function restrictFeatures(features, keptVertices) {
+        const map = new Map(keptVertices.map((v, i) => [v, i]));
+        return features.map(list => list.filter(v => map.has(v)).map(v => map.get(v))).filter(list => list.length >= 2);
+      }
+
+      function activeIntersectionGraph(n, features, removedFeatures, vertices = Array.from({ length: n }, (_, i) => i)) {
+        const edges = edgesFromFeatures(n, features, removedFeatures);
+        return { n, vertices, edges, adj: buildAdj(n, edges) };
+      }
+
+      function isBalancedAfterFeatureRemoval(n, features, removed, target) {
+        const graph = activeIntersectionGraph(n, features, removed);
+        const comps = activeComponents(graph, new Set());
+        return comps.length >= 2 && comps.every(comp => comp.length >= target) ? comps : null;
+      }
+
+      function isHalfAfterFeatureRemoval(n, features, removed, maxComponentSize) {
+        const graph = activeIntersectionGraph(n, features, removed);
+        const comps = activeComponents(graph, new Set()).sort((a, b) => b.length - a.length);
+        return (comps[0] ? comps[0].length : 0) <= maxComponentSize ? comps : null;
+      }
+
+      function minimumBalancedFeatureCut(n, features) {
+        const target = Math.ceil(n / 3);
+        const m = features.length;
+        const startedAt = Date.now();
+        let bestComps = null;
+        const selected = [];
+
+        function search(start, need) {
+          if (Date.now() - startedAt > FEATURE_SEARCH_TIME_MS) throw new Error('timeout');
+          if (need === 0) {
+            const removed = new Set(selected);
+            const comps = isBalancedAfterFeatureRemoval(n, features, removed, target);
+            if (comps) bestComps = comps;
+            return Boolean(comps);
+          }
+          for (let i = start; i <= m - need; i++) {
+            selected.push(i);
+            if (search(i + 1, need - 1)) return true;
+            selected.pop();
+          }
+          return false;
+        }
+
+        try {
+          for (let k = 1; k <= Math.min(m, n - 2 * target + m); k++) {
+            selected.length = 0;
+            if (search(0, k)) {
+              const sideA = bestComps[0] || [];
+              const sideB = bestComps[1] || [];
+              return { goal: 'balanced', k, separator: selected.slice(), sideA, sideB, componentSizes: bestComps.map(comp => comp.length).sort((a, b) => b - a), minComponentSize: target, exact: true, reason: 'ok' };
+            }
+          }
+        } catch (err) {
+          return { goal: 'balanced', k: Infinity, separator: [], sideA: [], sideB: [], componentSizes: [], minComponentSize: target, exact: false, reason: 'timeout' };
+        }
+        return { goal: 'balanced', k: Infinity, separator: [], sideA: [], sideB: [], componentSizes: [], minComponentSize: target, exact: true, reason: 'none' };
+      }
+
+      function minimumHalfFeatureCut(n, features) {
+        const maxComponentSize = Math.floor((n - 1) / 2);
+        const m = features.length;
+        const startedAt = Date.now();
+        let bestComps = null;
+        const selected = [];
+
+        function search(start, need) {
+          if (Date.now() - startedAt > FEATURE_SEARCH_TIME_MS) throw new Error('timeout');
+          if (need === 0) {
+            const removed = new Set(selected);
+            const comps = isHalfAfterFeatureRemoval(n, features, removed, maxComponentSize);
+            if (comps) bestComps = comps;
+            return Boolean(comps);
+          }
+          for (let i = start; i <= m - need; i++) {
+            selected.push(i);
+            if (search(i + 1, need - 1)) return true;
+            selected.pop();
+          }
+          return false;
+        }
+
+        try {
+          for (let k = 1; k <= m; k++) {
+            selected.length = 0;
+            if (search(0, k)) {
+              return {
+                goal: 'half',
+                k,
+                separator: selected.slice(),
+                sideA: bestComps[0] || [],
+                sideB: bestComps[1] || [],
+                componentSizes: bestComps.map(comp => comp.length).sort((a, b) => b - a),
+                maxComponentSize,
+                exact: true,
+                reason: 'ok'
+              };
+            }
+          }
+        } catch (err) {
+          return greedyHalfFeatureCut(n, features, maxComponentSize, 'timeout');
+        }
+        return { goal: 'half', k: Infinity, separator: [], sideA: [], sideB: [], componentSizes: [], maxComponentSize, exact: true, reason: 'none' };
+      }
+
+      function greedyHalfFeatureCut(n, features, maxComponentSize, reason) {
+        const removed = new Set();
+        let comps = activeComponents(activeIntersectionGraph(n, features, removed), new Set()).sort((a, b) => b.length - a.length);
+        while ((comps[0] ? comps[0].length : 0) > maxComponentSize && removed.size < features.length) {
+          let bestFeature = null;
+          let bestComps = null;
+          let bestLargest = Infinity;
+          for (let f = 0; f < features.length; f++) {
+            if (removed.has(f)) continue;
+            const candidateRemoved = new Set(removed);
+            candidateRemoved.add(f);
+            const candidateComps = activeComponents(activeIntersectionGraph(n, features, candidateRemoved), new Set()).sort((a, b) => b.length - a.length);
+            const largest = candidateComps[0] ? candidateComps[0].length : 0;
+            if (largest < bestLargest) {
+              bestLargest = largest;
+              bestFeature = f;
+              bestComps = candidateComps;
+            }
+          }
+          if (bestFeature === null) break;
+          removed.add(bestFeature);
+          comps = bestComps;
+        }
+        if ((comps[0] ? comps[0].length : 0) > maxComponentSize) {
+          return { goal: 'half', k: Infinity, separator: [], sideA: [], sideB: [], componentSizes: [], maxComponentSize, exact: false, reason };
+        }
+        return {
+          goal: 'half',
+          k: removed.size,
+          separator: Array.from(removed).sort((a, b) => a - b),
+          sideA: comps[0] || [],
+          sideB: comps[1] || [],
+          componentSizes: comps.map(comp => comp.length).sort((a, b) => b - a),
+          maxComponentSize,
+          exact: false,
+          reason
+        };
+      }
+
+      function minimumFeatureCut(n, features, goal) {
+        return isHalfGoal(goal) ? minimumHalfFeatureCut(n, features) : minimumBalancedFeatureCut(n, features);
+      }
+
+      function createBinomialInstance(config) {
+        let fallback = null;
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          const fullEdges = generateBinomialEdges(config.n, config.p);
+          const lccVertices = largestConnectedComponent(config.n, fullEdges);
+          const inactiveVertices = verticesOutside(config.n, lccVertices);
+          const lccGraph = inducedGraph(lccVertices, fullEdges);
+          const fullCut = minimumVertexCut(lccGraph, config.goal);
+          const fullInstance = {
+            mode: 'binomial',
+            config,
+            fullEdges,
+            graph: lccGraph,
+            cut: fullCut,
+            attempt,
+            lccSize: lccGraph.n,
+            inactiveVertices,
+            inactiveGraph: inducedGraph(inactiveVertices, fullEdges),
+            pruned: emptyPrunedVisualization(),
+            prunedLeaves: 0,
+            usedPruningFallback: false
+          };
+          fallback = fullInstance;
+          if (isPlayableCut(lccGraph, fullCut)) return fullInstance;
+
+          if (solverNeedsPrunedFallback(fullCut)) {
+            const prunedGraph = removeDegreeOneVertices(lccGraph);
+            const prunedCut = minimumVertexCut(prunedGraph, config.goal);
+            const pruned = prunedVisualization(lccGraph, prunedGraph);
+            const prunedInstance = {
+              ...fullInstance,
+              graph: prunedGraph,
+              cut: prunedCut,
+              pruned,
+              prunedLeaves: pruned.vertices.length,
+              usedPruningFallback: true
+            };
+            fallback = prunedInstance;
+            if (isPlayableCut(prunedGraph, prunedCut)) return prunedInstance;
+          }
+        }
+        return fallback;
+      }
+
+      function createIntersectionInstance(config) {
+        let fallback = null;
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          const rawFeatures = generateIncidence(config.n, config.m, config.p);
+          const fullEdges = edgesFromFeatures(config.n, rawFeatures);
+          const lccVertices = largestConnectedComponent(config.n, fullEdges);
+          const inactiveVertices = verticesOutside(config.n, lccVertices);
+          const features = restrictFeatures(rawFeatures, lccVertices);
+          const graph = activeIntersectionGraph(lccVertices.length, features, new Set(), lccVertices);
+          const cut = minimumFeatureCut(graph.n, features, config.goal);
+          const instance = {
+            mode: config.mode,
+            config,
+            features,
+            graph,
+            cut,
+            attempt,
+            lccSize: graph.n,
+            inactiveVertices,
+            inactiveGraph: inducedGraph(inactiveVertices, fullEdges),
+            pruned: emptyPrunedVisualization(),
+            prunedLeaves: 0,
+            usedPruningFallback: false
+          };
+          fallback = instance;
+          if (graph.n >= 6 && features.length >= 2 && Number.isFinite(cut.k) && cut.k > 0) return instance;
+        }
+        return fallback;
+      }
+
+      function layoutGraph(graph, mode, featureCount = 0, inactiveGraph = null, pruned = emptyPrunedVisualization(), features = [], layoutStyle = 'force') {
+        const n = graph.n;
+        const featureLayout = isIntersectionMode(mode) ? layoutFeaturePositions(featureCount) : { positions: [], startY: H };
+        const hasInactiveVertices = Boolean(inactiveGraph && inactiveGraph.n);
+        if (isIntersectionMode(mode) && layoutStyle === 'clique') {
+          const cliqueLayout = layoutIntersectionCliqueGraph(n, features, featureCount, featureLayout, hasInactiveVertices);
+          return {
+            vertices: cliqueLayout.vertices,
+            features: cliqueLayout.features,
+            inactive: layoutInactiveGraph(inactiveGraph, mode, layoutStyle),
+            pruned: layoutPrunedVertices(pruned, cliqueLayout.vertices, mode, hasInactiveVertices)
+          };
+        }
+
+        const positions = [];
+        const cx = W / 2;
+        const cy = isIntersectionMode(mode) ? H * 0.39 : H / 2;
+        const initialRadius = Math.min(W, H) * (isIntersectionMode(mode) ? 0.25 : 0.31);
+        for (let i = 0; i < n; i++) {
+          const angle = (2 * Math.PI * i) / Math.max(1, n) + (Math.random() - 0.5) * 0.35;
+          const jitter = 0.78 + Math.random() * 0.34;
+          positions.push({ x: cx + Math.cos(angle) * initialRadius * jitter, y: cy + Math.sin(angle) * initialRadius * jitter });
+        }
+        const ideal = n <= 12 ? 120 : n <= 24 ? 92 : 72;
+        for (let iter = 0; iter < 520; iter++) {
+          const disp = Array.from({ length: n }, () => ({ x: 0, y: 0 }));
+          for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+              let dx = positions[i].x - positions[j].x;
+              let dy = positions[i].y - positions[j].y;
+              let distSq = dx * dx + dy * dy;
+              if (distSq < 4) {
+                dx = Math.random() - 0.5;
+                dy = Math.random() - 0.5;
+                distSq = dx * dx + dy * dy + 4;
+              }
+              const dist = Math.sqrt(distSq);
+              const force = 5000 / distSq;
+              disp[i].x += (dx / dist) * force;
+              disp[i].y += (dy / dist) * force;
+              disp[j].x -= (dx / dist) * force;
+              disp[j].y -= (dy / dist) * force;
+            }
+          }
+          for (const [u, v] of graph.edges) {
+            const dx = positions[u].x - positions[v].x;
+            const dy = positions[u].y - positions[v].y;
+            const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+            const force = (dist - ideal) * 0.018;
+            disp[u].x -= (dx / dist) * force;
+            disp[u].y -= (dy / dist) * force;
+            disp[v].x += (dx / dist) * force;
+            disp[v].y += (dy / dist) * force;
+          }
+          for (let i = 0; i < n; i++) {
+            disp[i].x += (cx - positions[i].x) * 0.006;
+            disp[i].y += (cy - positions[i].y) * 0.006;
+            const temp = 5.2 * (1 - iter / 520) + 0.15;
+            positions[i].x += clamp(disp[i].x, -temp, temp);
+            positions[i].y += clamp(disp[i].y, -temp, temp);
+          }
+        }
+        const hasPeripheralVertices = hasInactiveVertices || Boolean(pruned && pruned.vertices.length);
+        normalizePositions(
+          positions,
+          isIntersectionMode(mode) ? 58 : 56,
+          isIntersectionMode(mode) ? 110 : 56,
+          isIntersectionMode(mode)
+            ? {
+                minX: hasPeripheralVertices ? 150 : 58,
+                maxX: hasPeripheralVertices ? W - 150 : W - 58,
+                minY: 58,
+                maxY: Math.max(170, featureLayout.startY - 60)
+              }
+            : (hasPeripheralVertices ? { minX: 150, maxX: W - 150 } : null)
+        );
+        return {
+          vertices: positions,
+          features: featureLayout.positions,
+          inactive: layoutInactiveGraph(inactiveGraph, mode, layoutStyle),
+          pruned: layoutPrunedVertices(pruned, positions, mode, hasInactiveVertices)
+        };
+      }
+
+      function layoutFeaturePositions(featureCount) {
+        const positions = [];
+        const count = Math.max(0, featureCount);
+        if (!count) return { positions, cols: 1, rows: 1, startY: H - 78 };
+        const cols = Math.min(count, 14);
+        const rows = Math.ceil(count / cols);
+        const startY = H - 78 - (rows - 1) * 42;
+        for (let f = 0; f < count; f++) {
+          const row = Math.floor(f / cols);
+          const col = f % cols;
+          const rowCount = row === rows - 1 ? count - row * cols : cols;
+          const gap = Math.min(58, (W - 110) / Math.max(1, rowCount - 1));
+          const x = rowCount === 1 ? W / 2 : (W - gap * (rowCount - 1)) / 2 + col * gap;
+          positions.push({ x, y: startY + row * 42 });
+        }
+        return { positions, cols, rows, startY };
+      }
+
+      function layoutIntersectionCliqueGraph(n, features, featureCount, featureLayout = layoutFeaturePositions(featureCount), hasInactiveVertices = false) {
+        const count = Math.max(featureCount, features.length);
+        const resolvedFeatureLayout = featureLayout.positions.length === count ? featureLayout : layoutFeaturePositions(count);
+        const featurePositions = resolvedFeatureLayout.positions;
+        const startY = resolvedFeatureLayout.startY || H - 78;
+        const clusterCols = Math.min(Math.max(count, 1), 8);
+        const clusterRows = Math.max(1, Math.ceil(Math.max(count, 1) / clusterCols));
+        const clusterGap = Math.min(106, (W - 128) / Math.max(1, clusterCols - 1));
+        const clusterStartX = clusterCols === 1 ? W / 2 : (W - clusterGap * (clusterCols - 1)) / 2;
+
+        const memberships = Array.from({ length: n }, () => []);
+        for (let f = 0; f < features.length; f++) {
+          for (const v of features[f]) memberships[v].push(f);
+        }
+
+        const groups = new Map();
+        for (let v = 0; v < n; v++) {
+          const primary = memberships[v].length ? memberships[v][0] : -1;
+          const group = groups.get(primary) || [];
+          group.push(v);
+          groups.set(primary, group);
+        }
+
+        const positions = Array(n);
+        const center = { x: W / 2, y: H * 0.38 };
+        const fallback = groups.get(-1) || [];
+        groups.delete(-1);
+        const clusterTop = hasInactiveVertices ? 124 : 62;
+        const clusterBottom = Math.max(clusterTop + 96, startY - 84);
+
+        for (const [feature, vertices] of groups) {
+          const slot = Math.max(0, feature);
+          const col = slot % clusterCols;
+          const row = Math.floor(slot / clusterCols);
+          const yRatio = clusterRows <= 1 ? 0.5 : (row + 0.5) / clusterRows;
+          const cluster = {
+            x: clusterStartX + col * clusterGap,
+            y: clusterTop + yRatio * (clusterBottom - clusterTop)
+          };
+          const radius = vertices.length <= 1 ? 0 : Math.min(36, 12 + Math.sqrt(vertices.length) * 8);
+          for (let i = 0; i < vertices.length; i++) {
+            const v = vertices[i];
+            const angle = -Math.PI / 2 + (2 * Math.PI * i) / vertices.length;
+            positions[v] = {
+              x: clamp(cluster.x + Math.cos(angle) * radius, 42, W - 42),
+              y: clamp(cluster.y + Math.sin(angle) * radius, 84, Math.max(116, startY - 42))
+            };
+          }
+        }
+
+        if (fallback.length) {
+          const radius = Math.min(70, 18 + Math.sqrt(fallback.length) * 14);
+          for (let i = 0; i < fallback.length; i++) {
+            const v = fallback[i];
+            const angle = -Math.PI / 2 + (2 * Math.PI * i) / fallback.length;
+            positions[v] = {
+              x: center.x + Math.cos(angle) * radius,
+              y: center.y + Math.sin(angle) * radius
+            };
+          }
+        }
+
+        for (let v = 0; v < n; v++) {
+          if (!positions[v]) positions[v] = { x: center.x, y: center.y };
+        }
+
+        return { vertices: positions, features: featurePositions };
+      }
+
+      function layoutPrunedVertices(pruned, activePositions, mode, hasInactiveVertices) {
+        const positions = [];
+        if (!pruned || !pruned.vertices.length || !activePositions.length) return positions;
+
+        const adj = Array.from({ length: pruned.vertices.length }, () => []);
+        const placement = Array.from({ length: pruned.vertices.length }, () => ({ anchor: null, depth: Infinity }));
+        const queue = [];
+
+        for (const edge of pruned.edges) {
+          if (edge.aType === 'pruned' && edge.bType === 'pruned') {
+            adj[edge.a].push(edge.b);
+            adj[edge.b].push(edge.a);
+          } else {
+            const prunedIndex = edge.aType === 'pruned' ? edge.a : edge.b;
+            const activeIndex = edge.aType === 'active' ? edge.a : edge.b;
+            if (placement[prunedIndex].depth > 1) {
+              placement[prunedIndex] = { anchor: activeIndex, depth: 1 };
+              queue.push(prunedIndex);
+            }
+          }
+        }
+
+        for (let head = 0; head < queue.length; head++) {
+          const v = queue[head];
+          for (const to of adj[v]) {
+            if (placement[to].depth > placement[v].depth + 1) {
+              placement[to] = { anchor: placement[v].anchor, depth: placement[v].depth + 1 };
+              queue.push(to);
+            }
+          }
+        }
+
+        const byAnchor = new Map();
+        for (let i = 0; i < placement.length; i++) {
+          if (placement[i].anchor === null) {
+            placement[i] = { anchor: i % activePositions.length, depth: 2 };
+          }
+          const list = byAnchor.get(placement[i].anchor) || [];
+          list.push(i);
+          byAnchor.set(placement[i].anchor, list);
+        }
+
+        const center = { x: W / 2, y: isIntersectionMode(mode) ? H * 0.39 : H / 2 };
+        const minX = hasInactiveVertices ? 116 : 24;
+        const maxX = hasInactiveVertices ? W - 116 : W - 24;
+        const maxY = isIntersectionMode(mode) ? H - 142 : H - 24;
+
+        for (const [anchor, vertices] of byAnchor) {
+          const base = activePositions[anchor];
+          let dx = base.x - center.x;
+          let dy = base.y - center.y;
+          let len = Math.sqrt(dx * dx + dy * dy);
+          if (len < 1) {
+            const angle = (2 * Math.PI * anchor) / activePositions.length;
+            dx = Math.cos(angle);
+            dy = Math.sin(angle);
+            len = 1;
+          }
+          const dir = { x: dx / len, y: dy / len };
+          const tangent = { x: -dir.y, y: dir.x };
+          vertices.sort((a, b) => placement[a].depth - placement[b].depth || a - b);
+          for (let i = 0; i < vertices.length; i++) {
+            const v = vertices[i];
+            const spread = (i - (vertices.length - 1) / 2) * 15;
+            const radius = 29 + Math.min(placement[v].depth, 5) * 17;
+            positions[v] = {
+              x: clamp(base.x + dir.x * radius + tangent.x * spread, minX, maxX),
+              y: clamp(base.y + dir.y * radius + tangent.y * spread, 24, maxY)
+            };
+          }
+        }
+
+        return positions;
+      }
+
+      function layoutInactiveGraph(graph, mode, layoutStyle = 'force') {
+        const positions = [];
+        if (!graph || !graph.n) return positions;
+        const comps = activeComponents(graph, new Set()).sort((a, b) => b.length - a.length);
+
+        if (isIntersectionMode(mode) && layoutStyle === 'clique') {
+          const cols = Math.min(Math.max(comps.length, 1), 12);
+          const rows = Math.ceil(comps.length / cols);
+          const gapX = Math.min(68, (W - 96) / Math.max(1, cols - 1));
+          const startX = cols === 1 ? W / 2 : (W - gapX * (cols - 1)) / 2;
+          const gapY = rows <= 1 ? 0 : Math.min(34, 70 / Math.max(1, rows - 1));
+          for (let c = 0; c < comps.length; c++) {
+            const comp = comps[c];
+            const row = Math.floor(c / cols);
+            const col = c % cols;
+            const center = {
+              x: startX + col * gapX,
+              y: 34 + row * gapY
+            };
+            const localRadius = comp.length <= 1 ? 0 : Math.min(16, 6 + comp.length * 2.2);
+            for (let i = 0; i < comp.length; i++) {
+              const v = comp[i];
+              const localAngle = -Math.PI / 2 + (2 * Math.PI * i) / comp.length;
+              positions[v] = {
+                x: clamp(center.x + Math.cos(localAngle) * localRadius, 18, W - 18),
+                y: clamp(center.y + Math.sin(localAngle) * localRadius, 18, 106)
+              };
+            }
+          }
+          return positions;
+        }
+
+        const minY = 42;
+        const maxY = isIntersectionMode(mode) ? H - 168 : H - 42;
+        const sideX = [72, W - 72];
+        const sideTotals = [Math.ceil(comps.length / 2), Math.floor(comps.length / 2)];
+        const sideUsed = [0, 0];
+
+        for (let c = 0; c < comps.length; c++) {
+          const comp = comps[c];
+          const side = c % 2;
+          const slot = sideUsed[side]++;
+          const slotCount = Math.max(1, sideTotals[side]);
+          const yRatio = slotCount === 1 ? 0.5 : (slot + 0.5) / slotCount;
+          const center = {
+            x: sideX[side],
+            y: minY + yRatio * (maxY - minY)
+          };
+          const localRadius = comp.length <= 1 ? 0 : Math.min(28, 9 + comp.length * 3);
+          for (let i = 0; i < comp.length; i++) {
+            const v = comp[i];
+            const localAngle = -Math.PI / 2 + (2 * Math.PI * i) / comp.length;
+            positions[v] = {
+              x: clamp(center.x + Math.cos(localAngle) * localRadius, 20, W - 20),
+              y: clamp(center.y + Math.sin(localAngle) * localRadius, 20, maxY)
+            };
+          }
+        }
+        return positions;
+      }
+
+      function normalizePositions(positions, marginX, marginY, bounds = null) {
+        if (!positions.length) return;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const p of positions) {
+          minX = Math.min(minX, p.x);
+          minY = Math.min(minY, p.y);
+          maxX = Math.max(maxX, p.x);
+          maxY = Math.max(maxY, p.y);
+        }
+        const spanX = Math.max(1, maxX - minX);
+        const spanY = Math.max(1, maxY - minY);
+        const boxMinX = bounds ? bounds.minX : marginX;
+        const boxMaxX = bounds ? bounds.maxX : W - marginX;
+        const boxMinY = bounds && bounds.minY !== undefined ? bounds.minY : marginY / 2;
+        const boxMaxY = bounds && bounds.maxY !== undefined ? bounds.maxY : H - marginY / 2 - 70;
+        const usableW = boxMaxX - boxMinX;
+        const usableH = Math.max(1, boxMaxY - boxMinY);
+        const scale = Math.min(usableW / spanX, usableH / spanY, 1.65);
+        const offsetX = boxMinX + (usableW - spanX * scale) / 2;
+        const offsetY = boxMinY + (usableH - spanY * scale) / 2;
+        for (const p of positions) {
+          p.x = offsetX + (p.x - minX) * scale;
+          p.y = offsetY + (p.y - minY) * scale;
+        }
+      }
+
+      function newGame() {
+        syncControls();
+        const config = currentConfig();
+        const instance = config.mode === 'binomial' ? createBinomialInstance(config) : createIntersectionInstance(config);
+        const layoutStyle = 'force';
+        state = {
+          ...instance,
+          positions: layoutGraph(instance.graph, config.mode, instance.features ? instance.features.length : 0, instance.inactiveGraph, instance.pruned, instance.features || [], layoutStyle),
+          layoutStyle,
+          removed: new Set(),
+          history: [],
+          reveal: false
+        };
+        revealBtn.textContent = 'Pokaż przykład optimum';
+        updateLayoutToggle();
+        updateStats();
+        render();
+      }
+
+      function changeGoal() {
+        syncControls();
+        if (!state) {
+          newGame();
+          return;
+        }
+        const goal = goalSelect.value;
+        state.config = { ...state.config, goal };
+        state.cut = state.mode === 'binomial'
+          ? minimumVertexCut(state.graph, goal)
+          : minimumFeatureCut(state.graph.n, state.features, goal);
+        updateStats();
+        render();
+      }
+
+      function updateStats() {
+        const c = state.config;
+        paramsInfoEl.textContent = state.mode === 'binomial' ? `n=${c.n}, p=${formatNumber(c.p, 4)}` : `n=${c.n}, m=${c.m}, p=${formatNumber(c.p, 4)}`;
+        fullNEl.textContent = String(c.n);
+        fullMEl.textContent = isIntersectionMode(state.mode) ? String(c.m) : '-';
+        lccSizeEl.textContent = String(state.lccSize);
+        outsideLccSizeEl.textContent = String(state.inactiveVertices.length);
+        prunedLeavesEl.textContent = String(state.prunedLeaves);
+        componentSizeEl.textContent = String(state.graph.n);
+        targetSizeSideEl.textContent = goalThresholdLabel(state.cut, state.graph.n);
+        componentEdgesEl.textContent = String(state.graph.edges.length);
+        componentAvgEl.textContent = formatNumber(state.graph.n ? (2 * state.graph.edges.length) / state.graph.n : 0, 2);
+        attemptsEl.textContent = String(Math.max(0, state.attempt - 1));
+      }
+
+      function setMessage(text, kind = '') {
+        messageEl.textContent = text;
+        messageEl.className = 'message' + (kind ? ' ' + kind : '');
+      }
+
+      function toggleItem(index) {
+        const wasRemoved = state.removed.has(index);
+        state.history.push({ index, wasRemoved });
+        if (wasRemoved) state.removed.delete(index);
+        else state.removed.add(index);
+        render();
+      }
+
+      function undo() {
+        const action = state.history.pop();
+        if (!action) return;
+        if (action.wasRemoved) state.removed.add(action.index);
+        else state.removed.delete(action.index);
+        render();
+      }
+
+      function resetMoves() {
+        state.removed.clear();
+        state.history = [];
+        render();
+      }
+
+      function toggleReveal() {
+        state.reveal = !state.reveal;
+        revealBtn.textContent = state.reveal ? 'Ukryj przykład optimum' : 'Pokaż przykład optimum';
+        render();
+      }
+
+      function toggleLayoutStyle() {
+        if (!state || !isIntersectionMode(state.mode)) return;
+        state.layoutStyle = state.layoutStyle === 'clique' ? 'force' : 'clique';
+        state.positions = layoutGraph(
+          state.graph,
+          state.mode,
+          state.features ? state.features.length : 0,
+          state.inactiveGraph,
+          state.pruned,
+          state.features || [],
+          state.layoutStyle
+        );
+        updateLayoutToggle();
+        render();
+      }
+
+      function currentActiveGraph() {
+        if (state.mode === 'binomial') return state.graph;
+        return activeIntersectionGraph(state.graph.n, state.features, state.removed, state.graph.vertices);
+      }
+
+      function currentComponents() {
+        return state.mode === 'binomial' ? activeComponents(state.graph, state.removed) : activeComponents(currentActiveGraph(), new Set());
+      }
+
+      function currentVertexDegrees() {
+        const degrees = Array(state.graph.n).fill(0);
+        const graph = currentActiveGraph();
+        for (const [u, v] of graph.edges) {
+          if (state.mode === 'binomial' && (state.removed.has(u) || state.removed.has(v))) continue;
+          degrees[u]++;
+          degrees[v]++;
+        }
+        return degrees;
+      }
+
+      function renderEdges(compIdByVertex, disconnected) {
+        edgeLayer.innerHTML = '';
+        const frag = document.createDocumentFragment();
+        renderInactiveEdges(frag);
+        renderPrunedEdges(frag);
+        if (isIntersectionMode(state.mode)) {
+          for (let f = 0; f < state.features.length; f++) {
+            for (const v of state.features[f]) {
+              const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+              line.setAttribute('x1', state.positions.features[f].x);
+              line.setAttribute('y1', state.positions.features[f].y);
+              line.setAttribute('x2', state.positions.vertices[v].x);
+              line.setAttribute('y2', state.positions.vertices[v].y);
+              const classes = ['incidence'];
+              if (isCliqueLayoutState()) classes.push('clique');
+              if (state.removed.has(f)) classes.push('removed');
+              line.setAttribute('class', classes.join(' '));
+              frag.appendChild(line);
+            }
+          }
+        }
+        const graph = currentActiveGraph();
+        for (const [u, v] of graph.edges) {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', state.positions.vertices[u].x);
+          line.setAttribute('y1', state.positions.vertices[u].y);
+          line.setAttribute('x2', state.positions.vertices[v].x);
+          line.setAttribute('y2', state.positions.vertices[v].y);
+          const edgeRemoved = state.mode === 'binomial' && (state.removed.has(u) || state.removed.has(v));
+          line.setAttribute('class', edgeRemoved ? 'edge removed' : 'edge' + (isCliqueLayoutState() ? ' clique-projection' : ''));
+          if (!edgeRemoved && disconnected && !isCliqueLayoutState()) {
+            line.setAttribute('stroke', palette[compIdByVertex[u] % palette.length]);
+            line.setAttribute('opacity', '0.86');
+          }
+          frag.appendChild(line);
+        }
+        edgeLayer.appendChild(frag);
+      }
+
+      function renderInactiveEdges(frag) {
+        if (!state.inactiveGraph || !state.inactiveGraph.edges.length) return;
+        for (const [u, v] of state.inactiveGraph.edges) {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', state.positions.inactive[u].x);
+          line.setAttribute('y1', state.positions.inactive[u].y);
+          line.setAttribute('x2', state.positions.inactive[v].x);
+          line.setAttribute('y2', state.positions.inactive[v].y);
+          line.setAttribute('class', 'inactive-edge');
+          frag.appendChild(line);
+        }
+      }
+
+      function renderPrunedEdges(frag) {
+        if (!state.pruned || !state.pruned.edges.length) return;
+        for (const edge of state.pruned.edges) {
+          const a = edge.aType === 'active' ? state.positions.vertices[edge.a] : state.positions.pruned[edge.a];
+          const b = edge.bType === 'active' ? state.positions.vertices[edge.b] : state.positions.pruned[edge.b];
+          if (!a || !b) continue;
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', a.x);
+          line.setAttribute('y1', a.y);
+          line.setAttribute('x2', b.x);
+          line.setAttribute('y2', b.y);
+          const bridge = edge.aType === 'active' || edge.bType === 'active';
+          line.setAttribute('class', 'pruned-edge' + (bridge ? ' bridge' : ''));
+          frag.appendChild(line);
+        }
+      }
+
+      function renderNodes(compIdByVertex, disconnected, vertexDegrees) {
+        nodeLayer.innerHTML = '';
+        const frag = document.createDocumentFragment();
+        const optimal = new Set(state.reveal ? state.cut.separator : []);
+        renderInactiveVertices(frag);
+        renderPrunedVertices(frag);
+        for (let i = 0; i < state.graph.n; i++) {
+          const pos = state.positions.vertices[i];
+          const removed = state.mode === 'binomial' && state.removed.has(i);
+          const localLabel = i + 1;
+          const degreeLabel = vertexDegrees ? vertexDegrees[i] : null;
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', 'node' + (removed ? ' removed' : ''));
+          g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
+          g.setAttribute('tabindex', state.mode === 'binomial' ? '0' : '-1');
+          g.setAttribute('role', state.mode === 'binomial' ? 'button' : 'img');
+          const degreeSuffix = degreeLabel === null ? '' : `, stopień ${degreeLabel}`;
+          const label = state.mode === 'binomial' ? `${removed ? 'Przywróć' : 'Usuń'} wierzchołek ${localLabel}${degreeSuffix}` : `Wierzchołek ${localLabel}${degreeSuffix}`;
+          g.setAttribute('aria-label', label);
+          const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+          title.textContent = label;
+          g.appendChild(title);
+          if (state.mode === 'binomial') {
+            const hit = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            hit.setAttribute('class', 'hit-area');
+            hit.setAttribute('r', '30');
+            g.appendChild(hit);
+          }
+          if (state.mode === 'binomial' && optimal.has(i)) addRing(g, 22);
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('class', 'main');
+          circle.setAttribute('r', '16');
+          if (!removed) circle.setAttribute('fill', palette[disconnected ? compIdByVertex[i] % palette.length : 0]);
+          g.appendChild(circle);
+          if (removed) addCross(g);
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.textContent = String(degreeLabel === null ? localLabel : degreeLabel);
+          g.appendChild(text);
+          if (state.mode === 'binomial') attachItemEvents(g, i);
+          frag.appendChild(g);
+        }
+        if (isIntersectionMode(state.mode)) renderFeatures(frag, optimal);
+        nodeLayer.appendChild(frag);
+      }
+
+      function renderInactiveVertices(frag) {
+        for (let i = 0; i < state.inactiveVertices.length; i++) {
+          const pos = state.positions.inactive[i];
+          const label = state.inactiveVertices[i] + 1;
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', 'node inactive');
+          g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
+          g.setAttribute('role', 'img');
+          g.setAttribute('aria-label', `Wierzchołek ${label} poza największą składową`);
+
+          const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+          title.textContent = `Wierzchołek ${label} poza największą składową`;
+          g.appendChild(title);
+
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('class', 'main');
+          circle.setAttribute('r', '8');
+          g.appendChild(circle);
+          frag.appendChild(g);
+        }
+      }
+
+      function renderPrunedVertices(frag) {
+        if (!state.pruned || !state.pruned.vertices.length) return;
+        for (let i = 0; i < state.pruned.vertices.length; i++) {
+          const pos = state.positions.pruned[i];
+          if (!pos) continue;
+          const label = state.pruned.vertices[i] + 1;
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', 'node pruned');
+          g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
+          g.setAttribute('role', 'img');
+          g.setAttribute('aria-label', `Przycięty liść ${label} poza grą`);
+
+          const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+          title.textContent = `Przycięty liść ${label} poza grą`;
+          g.appendChild(title);
+
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('class', 'main');
+          circle.setAttribute('r', '6');
+          g.appendChild(circle);
+          frag.appendChild(g);
+        }
+      }
+
+      function renderFeatures(frag, optimal) {
+        for (let f = 0; f < state.features.length; f++) {
+          const pos = state.positions.features[f];
+          const removed = state.removed.has(f);
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', 'feature' + (removed ? ' removed' : ''));
+          g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
+          g.setAttribute('tabindex', '0');
+          g.setAttribute('role', 'button');
+          g.setAttribute('aria-label', `${removed ? 'Przywróć' : 'Usuń'} cechę ${f + 1}`);
+          const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+          title.textContent = `${removed ? 'Usunięta' : 'Aktywna'} cecha ${f + 1}`;
+          g.appendChild(title);
+          const hit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          hit.setAttribute('class', 'hit-area');
+          hit.setAttribute('x', '-30');
+          hit.setAttribute('y', '-24');
+          hit.setAttribute('width', '60');
+          hit.setAttribute('height', '48');
+          hit.setAttribute('rx', '9');
+          g.appendChild(hit);
+          if (optimal.has(f)) addRing(g, 25);
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('class', 'main');
+          rect.setAttribute('x', '-19');
+          rect.setAttribute('y', '-15');
+          rect.setAttribute('width', '38');
+          rect.setAttribute('height', '30');
+          if (!removed) rect.setAttribute('fill', varFeatureColor(f));
+          g.appendChild(rect);
+          if (removed) addCross(g);
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.textContent = 'F' + (f + 1);
+          g.appendChild(text);
+          attachItemEvents(g, f);
+          frag.appendChild(g);
+        }
+      }
+
+      function varFeatureColor(f) {
+        return f % 2 ? '#9a3412' : '#c2410c';
+      }
+
+      function addRing(g, r) {
+        const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        ring.setAttribute('class', 'optimal-ring');
+        ring.setAttribute('r', String(r));
+        g.appendChild(ring);
+      }
+
+      function addCross(g) {
+        const a = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        a.setAttribute('class', 'hint-line');
+        a.setAttribute('x1', '-10');
+        a.setAttribute('y1', '-10');
+        a.setAttribute('x2', '10');
+        a.setAttribute('y2', '10');
+        const b = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        b.setAttribute('class', 'hint-line');
+        b.setAttribute('x1', '10');
+        b.setAttribute('y1', '-10');
+        b.setAttribute('x2', '-10');
+        b.setAttribute('y2', '10');
+        g.appendChild(a);
+        g.appendChild(b);
+      }
+
+      function attachItemEvents(g, index) {
+        g.addEventListener('click', () => toggleItem(index));
+        g.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleItem(index);
+          }
+        });
+      }
+
+      function cutUnavailableMessage(reason) {
+        if (reason === 'too_large') return `Po przycięciu plansza ma ${state.graph.n} wierzchołków, a dokładny solver działa do ${MAX_EXACT_VERTICES}. Wylosuj nową planszę lub wybierz mniejsze parametry.`;
+        if (reason === 'timeout') return 'Solver przerwał liczenie tej planszy, żeby nie zawiesić przeglądarki. Wylosuj nową planszę.';
+        if (reason === 'too_small') return 'Plansza jest za mała, aby utworzyć dwie składowe mające po co najmniej 1/3 początkowych wierzchołków.';
+        return 'Dla tej planszy nie znaleziono zrównoważonego rozspójnienia spełniającego cel. Wylosuj nową planszę.';
+      }
+
+      function render() {
+        if (!state) return;
+        const comps = currentComponents();
+        const activeCount = state.mode === 'binomial' ? state.graph.n - state.removed.size : state.graph.n;
+        const halfGoal = isHalfGoal(state.cut.goal);
+        const target = halfGoal
+          ? (state.cut.maxComponentSize ?? Math.floor((state.graph.n - 1) / 2))
+          : (state.cut.minComponentSize || Math.ceil(state.graph.n / 3));
+        const disconnected = comps.length >= 2;
+        const compSizes = comps.map(comp => comp.length).sort((a, b) => b - a);
+        const largestSize = compSizes[0] || 0;
+        const goalReached = halfGoal ? largestSize <= target : disconnected && comps.every(comp => comp.length >= target);
+        const compIdByVertex = Array(state.graph.n).fill(0);
+        comps.forEach((comp, idx) => comp.forEach(v => { compIdByVertex[v] = idx; }));
+        const degreeLabels = degreeLabelsToggle.checked ? currentVertexDegrees() : null;
+
+        renderEdges(compIdByVertex, disconnected);
+        renderNodes(compIdByVertex, disconnected, degreeLabels);
+
+        removedCountEl.textContent = String(state.removed.size);
+        minimumLabelEl.textContent = Number.isFinite(state.cut.k) && state.cut.exact === false ? 'Znaleziono' : 'Minimum';
+        minimumCutEl.textContent = cutSizeLabel(state.cut);
+        targetSizeEl.textContent = goalThresholdLabel(state.cut, state.graph.n);
+        componentCountEl.textContent = String(comps.length);
+        undoBtn.disabled = state.history.length === 0;
+
+        const itemName = isIntersectionMode(state.mode) ? 'cech' : 'wierzchołków';
+        if (!Number.isFinite(state.cut.k)) {
+          setMessage(cutUnavailableMessage(state.cut.reason), 'warn');
+        } else if (goalReached && state.removed.size === state.cut.k && state.cut.exact !== false) {
+          const detail = halfGoal ? `Największa składowa ma rozmiar ${largestSize}.` : `Rozmiary składowych: ${compSizes.join(' i ')}.`;
+          setMessage(`Idealnie: cel osiągnięty za pomocą ${state.removed.size} ${itemName}. ${detail}`, 'good');
+        } else if (goalReached) {
+          const bound = state.cut.exact === false ? `Najlepszy znaleziony wynik dla tej planszy to ${state.cut.k}.` : `Minimum dla tej planszy to ${state.cut.k}.`;
+          const detail = halfGoal ? `Największa składowa ma rozmiar ${largestSize}.` : `Rozmiary składowych: ${compSizes.join(' i ')}.`;
+          setMessage(`Cel osiągnięty, ale użyto ${state.removed.size} ${itemName}. ${bound} ${detail}`, 'warn');
+        } else if (!halfGoal && disconnected) {
+          setMessage(`Graf jest rozspójniony, ale podział nie jest zrównoważony. Każda składowa musi mieć co najmniej ${target} wierzchołków. Aktualne rozmiary: ${compSizes.join(', ')}.`, 'bad');
+        } else if (!halfGoal && activeCount < 2 * target) {
+          setMessage(`Usunięto zbyt wiele wierzchołków: zostało ${activeCount}, a potrzeba co najmniej ${2 * target}.`, 'bad');
+        } else if (halfGoal) {
+          setMessage(`Największa składowa ma rozmiar ${largestSize}; cel wymaga rozmiaru co najwyżej ${target}. Usuń jak najmniej ${isIntersectionMode(state.mode) ? 'cech' : 'wierzchołków'}. ${state.cut.exact === false ? 'Najlepszy znaleziony wynik' : 'Minimum'} do porównania: ${cutSizeLabel(state.cut)}.`);
+        } else {
+          setMessage(`Graf nadal nie spełnia celu. Usuń ${isIntersectionMode(state.mode) ? 'cechy' : 'wierzchołki'}, aby powstały składowe rozmiaru co najmniej ${target}. Minimum: ${state.cut.k}.`);
+        }
+
+        if (state.reveal && Number.isFinite(state.cut.k)) {
+          const sideSizes = (state.cut.componentSizes && state.cut.componentSizes.length ? state.cut.componentSizes : [state.cut.sideA.length, state.cut.sideB.length]).filter(Boolean).sort((a, b) => b - a).join(', ');
+          if (degreeLabelsToggle.checked) {
+            messageEl.textContent += ` Przykład ${state.cut.exact === false ? 'znalezionego wyniku' : 'optimum'} jest zaznaczony na planszy; rozmiary składowych: ${sideSizes}.`;
+          } else {
+            const labels = state.cut.separator.map(v => isIntersectionMode(state.mode) ? 'F' + (v + 1) : String(v + 1)).join(', ');
+            messageEl.textContent += labels ? ` Przykład ${state.cut.exact === false ? 'znalezionego wyniku' : 'optimum'}: usuń ${labels}; rozmiary składowych: ${sideSizes}.` : '';
+          }
+        }
+      }
+
+      modeSelect.addEventListener('change', () => { syncControls(); newGame(); });
+      goalSelect.addEventListener('change', changeGoal);
+      difficultySelect.addEventListener('change', () => { syncControls(); });
+      newGraphBtn.addEventListener('click', newGame);
+      resetBtn.addEventListener('click', resetMoves);
+      undoBtn.addEventListener('click', undo);
+      revealBtn.addEventListener('click', toggleReveal);
+      layoutToggleBtn.addEventListener('click', toggleLayoutStyle);
+      degreeLabelsToggle.addEventListener('change', render);
+
+      document.addEventListener('keydown', event => {
+        if (event.target && ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(event.target.tagName)) return;
+        if (event.key.toLowerCase() === 'n') newGame();
+        if (event.key.toLowerCase() === 'r') resetMoves();
+        if (event.key.toLowerCase() === 'z') undo();
+      });
+
+      syncControls();
+      newGame();
+    })();
+  </script>
+</body>
+</html>

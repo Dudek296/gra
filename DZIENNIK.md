@@ -48,3 +48,4 @@
 - Doprecyzowano opisy celu `< 1/2`: próg jest warunkiem sukcesu, a wynikiem gry pozostaje minimalna liczba usuniętych elementów.
 - Zmiana celu gry przelicza optimum na tej samej planszy zamiast losować nowy graf.
 - Dodano uwagę przy wyborze celu, że do gry zalecane jest wygenerowanie nowej planszy, oraz przeskalowano poziomy trudności do `n=25/50/75`.
+- Utworzono backup bieżącej wersji strony w `backups/index-2026-06-17-19b29d8.html`.

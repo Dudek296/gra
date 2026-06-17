@@ -57,3 +57,8 @@
 - Utworzono backup wersji `43f03ba` w `backups/index-2026-06-17-43f03ba.html`.
 - Rozbudowano podpowiedzi: dwie pierwsze opisują graf dwumianowy, druga doprecyzowuje szukanie optimum, a trzecia opisuje graf przecięć i cięcie połączeń między klikami.
 - Usunięto spod podpowiedzi akapity o poziomach trudności, zostawiając opis liści w trybie dwumianowym.
+
+## 2026-06-18
+
+- Utworzono backup wersji `1d734b6` w `backups/index-2026-06-18-1d734b6.html`.
+- Złagodzono poziom `Łatwy`: w grafie dwumianowym używa średniego stopnia około `2.3`, a w grafie przecięć parametru `nmp^2=2.3`.

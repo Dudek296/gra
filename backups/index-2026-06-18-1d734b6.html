@@ -537,18 +537,16 @@
       const VERTEX_SEARCH_TIME_MS = 1800;
       const HALF_VERTEX_SEARCH_TIME_MS = 2500;
       const FEATURE_SEARCH_TIME_MS = 1700;
-      const EASY_DENSITY = 2.3;
-      const NORMAL_DENSITY = 3;
       const palette = ['#2563eb', '#d64550', '#118447', '#7c3aed', '#b45309', '#0f8995', '#be185d', '#52677a'];
 
       const binomialDifficulties = {
-        easy: { n: 25, p: EASY_DENSITY / 24 },
-        normal: { n: 50, p: NORMAL_DENSITY / 49 }
+        easy: { n: 25, p: 3 / 24 },
+        normal: { n: 50, p: 3 / 49 }
       };
 
       const intersectionDifficulties = {
-        easy: makeIntersectionDefaults(25, 10, EASY_DENSITY),
-        normal: makeIntersectionDefaults(50, 20, NORMAL_DENSITY)
+        easy: makeIntersectionDefaults(25, 10),
+        normal: makeIntersectionDefaults(50, 20)
       };
 
       const el = id => document.getElementById(id);
@@ -593,8 +591,8 @@
 
       let state = null;
 
-      function makeIntersectionDefaults(n, m, density = NORMAL_DENSITY) {
-        return { n, m, p: Math.sqrt(density / (n * m)) };
+      function makeIntersectionDefaults(n, m) {
+        return { n, m, p: Math.sqrt(3 / (n * m)) };
       }
 
       function clamp(value, min, max) {

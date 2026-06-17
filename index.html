@@ -133,6 +133,8 @@
       line-height: 1.3;
     }
 
+    p.field-note { margin: -4px 0 14px; }
+
     button {
       appearance: none;
       border: 1px solid #c9d2e3;
@@ -406,7 +408,6 @@
               <option value="balanced">Dwie duże składowe</option>
               <option value="half">Największa &lt; 1/2, minimum usunięć</option>
             </select>
-            <span class="field-note">Po zmianie celu można porównać tę samą planszę, ale zalecane jest wygenerowanie nowej.</span>
           </label>
           <label>Poziom trudności
             <select id="difficultySelect">
@@ -470,6 +471,7 @@
         <dt>Śr. stopień grafu w grze</dt><dd id="componentAvg">-</dd>
         <dt>Odrzucone losowania</dt><dd id="attempts">-</dd>
       </dl>
+      <p class="field-note">Po zmianie celu można porównać tę samą planszę, ale do właściwej gry zalecane jest wygenerowanie nowej.</p>
       <div class="rules" id="rulesText"></div>
     </aside>
   </main>

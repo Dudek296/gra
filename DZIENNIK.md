@@ -63,3 +63,4 @@
 - Utworzono backup wersji `1d734b6` w `backups/index-2026-06-18-1d734b6.html`.
 - Złagodzono poziom `Łatwy`: w grafie dwumianowym używa średniego stopnia około `2.3`, a w grafie przecięć parametru `nmp^2=2.3`.
 - Skrócono tytuły podpowiedzi do samych nazw modeli grafów oraz schowano pola parametrów poza poziomem `Własny`, gdzie startują od ustawień normalnych.
+- Skrócono tytuł strony do `Rozspójnianie grafu losowego`, przeniesiono uwagę poziomu `Własny` do panelu `Stan gry` i przywrócono numerowane tytuły podpowiedzi.

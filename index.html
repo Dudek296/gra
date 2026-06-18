@@ -47,6 +47,12 @@
       max-width: 1040px;
     }
 
+    .lead p {
+      margin: 0 0 8px;
+    }
+
+    .lead p:last-child { margin-bottom: 0; }
+
     main {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 360px;
@@ -434,7 +440,11 @@
 <body>
   <header>
     <h1>Rozspójnianie grafu losowego</h1>
-    <p class="lead">Graf dwumianowy i graf przecięć to klasyczne przykłady grafów losowych. Graf dwumianowy losuje graf i pozwala usuwać wierzchołki. Graf przecięć losuje wierzchołki oraz osobne cechy, a ruch polega na usuwaniu cech tworzących połączenia. W obu trybach aktywna plansza obejmuje tylko największą składową spójności, a pozostałe wierzchołki są widoczne jako szare, nieaktywne punkty.</p>
+    <div class="lead">
+      <p>Graf dwumianowy i graf przecięć to klasyczne przykłady grafów losowych. W grafie dwumianowym podajemy liczbę <code>n</code> wierzchołków i prawdopodobieństwo <code>p</code>; każda para wierzchołków jest wtedy łączona niezależnie z prawdopodobieństwem <code>p</code>. W grafie przecięć podajemy <code>n</code> wierzchołków, <code>m</code> cech oraz prawdopodobieństwo <code>p</code>; dwa wierzchołki są połączone, gdy mają co najmniej jedną wspólną cechę.</p>
+      <p>Jeżeli prawdopodobieństwo powstawania połączeń jest duże, w grafie pojawia się <em>wielka składowa spójności</em>, a większość wierzchołków jest połączona ścieżkami. W grze przedstawiona jest największa składowa spójności grafu, a pozostałe wierzchołki są widoczne jako szare, nieaktywne punkty.</p>
+      <p>Twoim zadaniem jest rozspójnić tę składową. W grafie dwumianowym usuwasz wierzchołki, a w grafie przecięć usuwasz cechy tworzące połączenia. Możesz ustawić cel gry: stworzenie dwóch dużych składowych spójności albo zmniejszenie największej pozostałej składowej poniżej połowy początkowego rozmiaru.</p>
+    </div>
   </header>
 
   <main>

@@ -69,3 +69,4 @@
 - Dodano we wstępie zdanie, że graf dwumianowy i graf przecięć są klasycznymi przykładami grafów losowych.
 - Rozbudowano wstęp teoretyczny: opisano parametry obu modeli, olbrzymią składową spójności, ruchy gracza i warianty celu gry.
 - Doprecyzowano opis grafu przecięć `G(n,m,p)` oraz zamieniono nazwę `wielka składowa` na `olbrzymia składowa`.
+- Dodano przycisk `Przetasuj graf`, który przelicza układ aktualnej planszy bez losowania nowego grafu, oraz tryb `Przesuwanie wierzchołków` do ręcznego przeciągania wierzchołków.

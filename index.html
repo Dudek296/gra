@@ -158,6 +158,7 @@
     button:hover { border-color: var(--accent); }
     button:active { transform: translateY(1px); }
     button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button.toggle-on { background: #eef5ff; color: var(--accent); border-color: var(--accent); }
     button:disabled { opacity: 0.52; cursor: not-allowed; }
 
     .pill {
@@ -194,6 +195,8 @@
       background-size: 28px 28px;
       touch-action: manipulation;
     }
+
+    svg.drag-mode { touch-action: none; }
 
     .edge {
       stroke: #8fa1bf;
@@ -291,6 +294,10 @@
       filter: none;
       opacity: 0.82;
     }
+
+    .node.draggable { cursor: grab; }
+    .node.dragging { cursor: grabbing; }
+    .node.dragging circle.main { stroke: #111827; }
 
     .feature rect.main { rx: 7; }
 
@@ -487,6 +494,8 @@
         <div class="actions">
           <div class="buttons">
             <button id="newGraph" class="primary" type="button">Nowa plansza</button>
+            <button id="shuffleGraph" type="button">Przetasuj graf</button>
+            <button id="dragToggle" type="button" aria-pressed="false">Przesuwanie wierzchołków</button>
             <button id="reset" type="button">Resetuj ruchy</button>
             <button id="undo" type="button">Cofnij</button>
             <button id="reveal" type="button">Pokaż przykład optimum</button>
@@ -562,6 +571,7 @@
       };
 
       const el = id => document.getElementById(id);
+      const graphSvg = el('graph');
       const edgeLayer = el('edgeLayer');
       const nodeLayer = el('nodeLayer');
       const rulesText = el('rulesText');
@@ -579,6 +589,8 @@
       const mField = el('mField');
       const degreeLabelsToggle = el('degreeLabels');
       const newGraphBtn = el('newGraph');
+      const shuffleGraphBtn = el('shuffleGraph');
+      const dragToggleBtn = el('dragToggle');
       const resetBtn = el('reset');
       const undoBtn = el('undo');
       const revealBtn = el('reveal');
@@ -603,6 +615,8 @@
       const attemptsEl = el('attempts');
 
       let state = null;
+      let dragState = null;
+      let suppressedVertexClick = null;
 
       function makeIntersectionDefaults(n, m, density = NORMAL_DENSITY) {
         return { n, m, p: Math.sqrt(density / (n * m)) };
@@ -711,6 +725,15 @@
         layoutToggleBtn.classList.toggle('hidden', !active);
         layoutToggleBtn.disabled = !active;
         layoutToggleBtn.textContent = style === 'clique' ? 'Układ standardowy' : 'Układ w kliki';
+      }
+
+      function updateDragToggle() {
+        const active = Boolean(state && state.dragMode);
+        dragToggleBtn.disabled = !state;
+        dragToggleBtn.classList.toggle('toggle-on', active);
+        dragToggleBtn.setAttribute('aria-pressed', String(active));
+        dragToggleBtn.textContent = active ? 'Przesuwanie: włączone' : 'Przesuwanie wierzchołków';
+        graphSvg.classList.toggle('drag-mode', active);
       }
 
       function updateStaticText() {
@@ -1845,10 +1868,14 @@
           layoutStyle,
           removed: new Set(),
           history: [],
+          dragMode: false,
           reveal: false
         };
+        dragState = null;
+        suppressedVertexClick = null;
         revealBtn.textContent = 'Pokaż przykład optimum';
         updateLayoutToggle();
+        updateDragToggle();
         updateStats();
         render();
       }
@@ -1918,10 +1945,8 @@
         render();
       }
 
-      function toggleLayoutStyle() {
-        if (!state || !isIntersectionMode(state.mode)) return;
-        state.layoutStyle = state.layoutStyle === 'clique' ? 'force' : 'clique';
-        state.positions = layoutGraph(
+      function layoutCurrentGraph() {
+        return layoutGraph(
           state.graph,
           state.mode,
           state.features ? state.features.length : 0,
@@ -1930,7 +1955,117 @@
           state.features || [],
           state.layoutStyle
         );
+      }
+
+      function shuffleCliquePositions() {
+        if (!state || !isIntersectionMode(state.mode) || state.layoutStyle !== 'clique') return;
+        const bounds = vertexDragBounds();
+        for (const pos of state.positions.vertices) {
+          pos.x = clamp(pos.x + (Math.random() - 0.5) * 24, bounds.minX, bounds.maxX);
+          pos.y = clamp(pos.y + (Math.random() - 0.5) * 24, bounds.minY, bounds.maxY);
+        }
+      }
+
+      function shuffleGraph() {
+        if (!state) return;
+        state.positions = layoutCurrentGraph();
+        shuffleCliquePositions();
+        render();
+      }
+
+      function toggleLayoutStyle() {
+        if (!state || !isIntersectionMode(state.mode)) return;
+        state.layoutStyle = state.layoutStyle === 'clique' ? 'force' : 'clique';
+        state.positions = layoutCurrentGraph();
         updateLayoutToggle();
+        render();
+      }
+
+      function toggleDragMode() {
+        if (!state) return;
+        state.dragMode = !state.dragMode;
+        if (!state.dragMode) dragState = null;
+        updateDragToggle();
+        render();
+      }
+
+      function vertexDragBounds() {
+        const featureY = isIntersectionMode(state.mode) && state.positions.features.length
+          ? Math.min(...state.positions.features.map(pos => pos.y))
+          : H;
+        return {
+          minX: 24,
+          maxX: W - 24,
+          minY: 24,
+          maxY: isIntersectionMode(state.mode) ? Math.max(96, featureY - 48) : H - 24
+        };
+      }
+
+      function svgPointFromEvent(event) {
+        const matrix = graphSvg.getScreenCTM();
+        if (!matrix) return { x: 0, y: 0 };
+        const point = graphSvg.createSVGPoint();
+        point.x = event.clientX;
+        point.y = event.clientY;
+        return point.matrixTransform(matrix.inverse());
+      }
+
+      function scheduleDragRender() {
+        if (!dragState || dragState.frame) return;
+        dragState.frame = requestAnimationFrame(() => {
+          if (!dragState) return;
+          dragState.frame = null;
+          render();
+        });
+      }
+
+      function startVertexDrag(event, index) {
+        if (!state || !state.dragMode || (event.button !== undefined && event.button !== 0)) return;
+        const pos = state.positions.vertices[index];
+        if (!pos) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const point = svgPointFromEvent(event);
+        dragState = {
+          index,
+          pointerId: event.pointerId,
+          offsetX: pos.x - point.x,
+          offsetY: pos.y - point.y,
+          startX: pos.x,
+          startY: pos.y,
+          moved: false,
+          frame: null
+        };
+        window.addEventListener('pointermove', moveVertexDrag, { passive: false });
+        window.addEventListener('pointerup', endVertexDrag);
+        window.addEventListener('pointercancel', endVertexDrag);
+        render();
+      }
+
+      function moveVertexDrag(event) {
+        if (!dragState || event.pointerId !== dragState.pointerId) return;
+        event.preventDefault();
+        const point = svgPointFromEvent(event);
+        const bounds = vertexDragBounds();
+        const pos = state.positions.vertices[dragState.index];
+        pos.x = clamp(point.x + dragState.offsetX, bounds.minX, bounds.maxX);
+        pos.y = clamp(point.y + dragState.offsetY, bounds.minY, bounds.maxY);
+        const dx = pos.x - dragState.startX;
+        const dy = pos.y - dragState.startY;
+        if (dx * dx + dy * dy > 16) dragState.moved = true;
+        scheduleDragRender();
+      }
+
+      function endVertexDrag(event) {
+        if (!dragState || event.pointerId !== dragState.pointerId) return;
+        window.removeEventListener('pointermove', moveVertexDrag);
+        window.removeEventListener('pointerup', endVertexDrag);
+        window.removeEventListener('pointercancel', endVertexDrag);
+        const moved = dragState.moved;
+        const index = dragState.index;
+        if (dragState.frame) cancelAnimationFrame(dragState.frame);
+        dragState = null;
+        if (moved) suppressedVertexClick = index;
         render();
       }
 
@@ -2035,7 +2170,7 @@
           const localLabel = i + 1;
           const degreeLabel = vertexDegrees ? vertexDegrees[i] : null;
           const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-          g.setAttribute('class', 'node' + (removed ? ' removed' : ''));
+          g.setAttribute('class', 'node' + (removed ? ' removed' : '') + (state.dragMode ? ' draggable' : '') + (dragState && dragState.index === i ? ' dragging' : ''));
           g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
           g.setAttribute('tabindex', state.mode === 'binomial' ? '0' : '-1');
           g.setAttribute('role', state.mode === 'binomial' ? 'button' : 'img');
@@ -2061,7 +2196,8 @@
           const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           text.textContent = String(degreeLabel === null ? localLabel : degreeLabel);
           g.appendChild(text);
-          if (state.mode === 'binomial') attachItemEvents(g, i);
+          attachVertexDragEvents(g, i);
+          if (state.mode === 'binomial') attachItemEvents(g, i, { disabledInDragMode: true });
           frag.appendChild(g);
         }
         if (isIntersectionMode(state.mode)) renderFeatures(frag, optimal);
@@ -2181,11 +2317,27 @@
         g.appendChild(b);
       }
 
-      function attachItemEvents(g, index) {
-        g.addEventListener('click', () => toggleItem(index));
+      function attachVertexDragEvents(g, index) {
+        g.addEventListener('pointerdown', event => startVertexDrag(event, index));
+      }
+
+      function attachItemEvents(g, index, options = {}) {
+        g.addEventListener('click', event => {
+          if (options.disabledInDragMode && suppressedVertexClick === index) {
+            suppressedVertexClick = null;
+            event.preventDefault();
+            return;
+          }
+          if (options.disabledInDragMode && state && state.dragMode) {
+            event.preventDefault();
+            return;
+          }
+          toggleItem(index);
+        });
         g.addEventListener('keydown', event => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
+            if (options.disabledInDragMode && state && state.dragMode) return;
             toggleItem(index);
           }
         });
@@ -2266,6 +2418,8 @@
         syncControls();
       });
       newGraphBtn.addEventListener('click', newGame);
+      shuffleGraphBtn.addEventListener('click', shuffleGraph);
+      dragToggleBtn.addEventListener('click', toggleDragMode);
       resetBtn.addEventListener('click', resetMoves);
       undoBtn.addEventListener('click', undo);
       revealBtn.addEventListener('click', toggleReveal);

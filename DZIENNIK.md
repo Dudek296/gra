@@ -66,3 +66,4 @@
 - Skrócono tytuł strony do `Rozspójnianie grafu losowego`, przeniesiono uwagę poziomu `Własny` do panelu `Stan gry` i przywrócono numerowane tytuły podpowiedzi.
 - Uproszczono etykiety celu `< 1/2` i modelu dwumianowego oraz zmieniono górny opis na stały opis obu modeli naraz.
 - Dopisano we wstępie informację o największej składowej i szarych wierzchołkach poza nią; w układzie klik cechy są rozmieszczane od prawej do lewej według liczby wierzchołków.
+- Dodano we wstępie zdanie, że graf dwumianowy i graf przecięć są klasycznymi przykładami grafów losowych.

@@ -70,3 +70,4 @@
 - Rozbudowano wstęp teoretyczny: opisano parametry obu modeli, olbrzymią składową spójności, ruchy gracza i warianty celu gry.
 - Doprecyzowano opis grafu przecięć `G(n,m,p)` oraz zamieniono nazwę `wielka składowa` na `olbrzymia składowa`.
 - Dodano przycisk `Przetasuj graf`, który przelicza układ aktualnej planszy bez losowania nowego grafu, oraz tryb `Przesuwanie wierzchołków` do ręcznego przeciągania wierzchołków.
+- Dodano przy celu `Dwie duże składowe` krótkie wyjaśnienie uproszczenia gry: skupienie na największej składowej i możliwe wyłączenie liści z ruchów.

@@ -67,4 +67,5 @@
 - Uproszczono etykiety celu `< 1/2` i modelu dwumianowego oraz zmieniono górny opis na stały opis obu modeli naraz.
 - Dopisano we wstępie informację o największej składowej i szarych wierzchołkach poza nią; w układzie klik cechy są rozmieszczane od prawej do lewej według liczby wierzchołków.
 - Dodano we wstępie zdanie, że graf dwumianowy i graf przecięć są klasycznymi przykładami grafów losowych.
-- Rozbudowano wstęp teoretyczny: opisano parametry obu modeli, wielką składową spójności, ruchy gracza i warianty celu gry.
+- Rozbudowano wstęp teoretyczny: opisano parametry obu modeli, olbrzymią składową spójności, ruchy gracza i warianty celu gry.
+- Doprecyzowano opis grafu przecięć `G(n,m,p)` oraz zamieniono nazwę `wielka składowa` na `olbrzymia składowa`.

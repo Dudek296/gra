@@ -71,3 +71,5 @@
 - Doprecyzowano opis grafu przecięć `G(n,m,p)` oraz zamieniono nazwę `wielka składowa` na `olbrzymia składowa`.
 - Dodano przycisk `Przetasuj graf`, który przelicza układ aktualnej planszy bez losowania nowego grafu, oraz tryb `Przesuwanie wierzchołków` do ręcznego przeciągania wierzchołków.
 - Dodano przy celu `Dwie duże składowe` krótkie wyjaśnienie uproszczenia gry: skupienie na największej składowej i możliwe wyłączenie liści z ruchów.
+- Utworzono backup wersji `12e259e` w `backups/index-2026-06-18-12e259e.html`.
+- Przeniesiono uwagę o uproszczeniu celu `Dwie duże składowe` do trzeciego akapitu wstępu i dodano przycisk ukrywający wstęp.
